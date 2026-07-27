@@ -1,0 +1,46 @@
+@import 'tailwindcss';
+
+/*
+ * Tailwind v4 reads color tokens from @theme and generates utilities
+ * (bg-team-primary, text-team-primary, border-team-primary, ...) that
+ * resolve to the CSS custom properties below. TeamThemeContext rewrites
+ * those custom properties at runtime when the favorite team changes, so
+ * the whole UI re-themes without a rebuild.
+ */
+@theme {
+  --color-team-primary: var(--team-primary);
+  --color-team-primary-fg: var(--team-primary-fg);
+  --color-team-secondary: var(--team-secondary);
+  --color-team-secondary-fg: var(--team-secondary-fg);
+}
+
+:root {
+  --team-primary: #6d28d9;
+  --team-primary-fg: #ffffff;
+  --team-secondary: #1f2937;
+  --team-secondary-fg: #ffffff;
+}
+
+/* Scrollbars follow the active team's colors, everywhere in the app. */
+html {
+  scrollbar-width: thin;
+  scrollbar-color: var(--team-primary) transparent;
+}
+
+*::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+*::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+*::-webkit-scrollbar-thumb {
+  background-color: var(--team-primary);
+  border-radius: 9999px;
+}
+
+*::-webkit-scrollbar-thumb:hover {
+  background-color: var(--team-secondary);
+}
