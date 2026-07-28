@@ -43,11 +43,70 @@ create index if not exists fixtures_season_round_idx on fixtures (season, round)
 create index if not exists fixtures_event_date_idx on fixtures (event_date);
 
 -- ---------------------------------------------------------------------------
+-- cup_fixtures — Croky Cup (Belgian Cup) matches involving a D1 club.
+--
+-- Unlike `fixtures`, opponents are frequently non-D1 clubs (Challenger Pro
+-- League or amateur) that don't exist in `teams`, so teams are stored as
+-- plain name/logo pairs; home_team_id/away_team_id are only set when that
+-- side is one of the 18 D1 clubs (see src/lib/d1ClubAliases.ts), letting the
+-- UI reuse `teams` for colors/local logos on that side.
+--
+-- Rounds before the D1 clubs enter (preliminary through 5th round, all-
+-- amateur) are never scraped/stored — see api/sync-cup.ts.
+-- ---------------------------------------------------------------------------
+create table if not exists cup_fixtures (
+  id bigint primary key,                  -- footmercato match id (data-live-id)
+  phase text not null,                    -- '6e tour', 'Seizièmes de finale', ...
+  event_date timestamptz,                 -- null until footmercato schedules the match
+  status text not null default 'NS',      -- 'NS' | 'FT' (see src/types CupFixtureStatus)
+  home_team_id integer references teams(id),
+  home_team_name text not null,
+  home_team_logo text,
+  away_team_id integer references teams(id),
+  away_team_name text not null,
+  away_team_logo text,
+  home_score integer,
+  away_score integer,
+  source_url text not null,
+  updated_at timestamptz not null default now()
+);
+
+create index if not exists cup_fixtures_event_date_idx on cup_fixtures (event_date);
+
+-- ---------------------------------------------------------------------------
+-- european_fixtures — Champions/Europa/Conference League matches involving
+-- a Belgian (D1) club. Same shape and same reasoning as cup_fixtures (see
+-- above) — opponents are foreign clubs, never in `teams`, so only the
+-- Belgian side ever gets a home_team_id/away_team_id. One table for all
+-- three competitions, distinguished by `competition`; see api/sync-cl.ts,
+-- sync-el.ts, sync-ecl.ts (all three built from src/lib/europeSyncHandler.ts).
+-- ---------------------------------------------------------------------------
+create table if not exists european_fixtures (
+  id bigint primary key,                  -- footmercato match id (data-live-id)
+  competition text not null,              -- 'CL' | 'EL' | 'ECL'
+  phase text not null,                    -- '3e tour de qualification', 'Journée 4', 'Quarts de finale', ...
+  event_date timestamptz,
+  status text not null default 'NS',      -- 'NS' | 'FT'
+  home_team_id integer references teams(id),
+  home_team_name text not null,
+  home_team_logo text,
+  away_team_id integer references teams(id),
+  away_team_name text not null,
+  away_team_logo text,
+  home_score integer,
+  away_score integer,
+  source_url text not null,
+  updated_at timestamptz not null default now()
+);
+
+create index if not exists european_fixtures_competition_date_idx on european_fixtures (competition, event_date);
+
+-- ---------------------------------------------------------------------------
 -- sync_logs — records each sync run for observability (requests used, success)
 -- ---------------------------------------------------------------------------
 create table if not exists sync_logs (
   id bigint generated always as identity primary key,
-  resource text not null,                 -- always 'fixtures' for now
+  resource text not null,                 -- 'fixtures', 'cup_fixtures', or 'european_fixtures:CL'|'EL'|'ECL'
   requests_used integer not null default 0,
   success boolean not null default true,
   message text,
@@ -72,6 +131,8 @@ create table if not exists user_preferences (
 -- ---------------------------------------------------------------------------
 alter table teams enable row level security;
 alter table fixtures enable row level security;
+alter table cup_fixtures enable row level security;
+alter table european_fixtures enable row level security;
 alter table sync_logs enable row level security;
 alter table user_preferences enable row level security;
 
@@ -80,6 +141,8 @@ alter table user_preferences enable row level security;
 -- bypasses RLS entirely, so no insert/update/delete policies are needed here.
 create policy "public read teams" on teams for select using (true);
 create policy "public read fixtures" on fixtures for select using (true);
+create policy "public read cup_fixtures" on cup_fixtures for select using (true);
+create policy "public read european_fixtures" on european_fixtures for select using (true);
 
 -- sync_logs is operational data, not needed by the client.
 create policy "service role only sync_logs" on sync_logs for all using (false);

@@ -53,3 +53,36 @@ export interface Fixture {
   homeTeam: Team;
   awayTeam: Team;
 }
+
+// Croky Cup / European opponents are frequently non-D1 clubs with no entry
+// in `teams` (see src/lib/d1ClubAliases.ts), so each side is its own
+// name/logo/isD1 trio instead of a full Team reference.
+export interface MatchOpponent {
+  id: number | null;
+  name: string;
+  logo: string | null;
+  isD1: boolean;
+}
+
+export interface CupFixture {
+  id: string; // footmercato id exceeds Number.MAX_SAFE_INTEGER
+  phase: string;
+  eventDate: string | null; // null until footmercato schedules the match
+  status: Extract<FixtureStatus, 'NS' | 'FT'>;
+  homeScore: number | null;
+  awayScore: number | null;
+  homeTeam: MatchOpponent;
+  awayTeam: MatchOpponent;
+}
+
+export interface EuropeanFixture {
+  id: string; // footmercato id exceeds Number.MAX_SAFE_INTEGER
+  competition: EuropeanCompetition;
+  phase: string;
+  eventDate: string | null;
+  status: Extract<FixtureStatus, 'NS' | 'FT'>;
+  homeScore: number | null;
+  awayScore: number | null;
+  homeTeam: MatchOpponent;
+  awayTeam: MatchOpponent;
+}

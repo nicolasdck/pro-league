@@ -9,6 +9,8 @@
     "lint": "eslint .",
     "preview": "vite preview",
     "sync:local": "tsx --env-file=.env.local scripts/sync-local.mjs",
+    "sync-cup:local": "tsx --env-file=.env.local scripts/sync-cup-local.mjs",
+    "sync-europe:local": "tsx --env-file=.env.local scripts/sync-europe-local.mjs",
     "logos:localize": "node --env-file=.env.local scripts/localize-logos.mjs",
     "icon:generate": "node scripts/generate-app-icon.mjs"
   },
@@ -16,6 +18,7 @@
     "@supabase/supabase-js": "^2.110.8",
     "@tailwindcss/vite": "^4.3.3",
     "@tanstack/react-query": "^5.101.4",
+    "cheerio": "^1.2.0",
     "lucide-react": "^1.27.0",
     "react": "^19.2.7",
     "react-dom": "^19.2.7",

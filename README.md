@@ -10,7 +10,7 @@ Le client ne parle jamais directement à l'API de données. Toutes les données 
 
 - **Frontend** : Vite + React 19 + TypeScript, Tailwind v4, `@tanstack/react-query`, `lucide-react`.
 - **Données** : Supabase Postgres (`teams`, `fixtures`, `sync_logs`, `user_preferences`), lecture publique via RLS. Il n'y a **pas** de table `standings` : le classement est calculé côté client à partir des résultats (voir plus bas).
-- **Synchro** : `api/sync.ts`, une fonction serverless Vercel déclenchée par `vercel.json` (cron), qui récupère le calendrier complet d'une saison depuis TheSportsDB et fait un `upsert` dans Supabase avec la clé de service.
+- **Synchro** : `api/sync.ts` (ligue, depuis TheSportsDB) et quatre fonctions de scraping footmercato — `api/sync-cup.ts` (Croky Cup) et `api/sync-cl.ts` / `sync-el.ts` / `sync-ecl.ts` (Coupes d'Europe, voir plus bas) — chacune déclenchée par son propre cron dans `vercel.json` et faisant un `upsert` dans Supabase avec la clé de service.
 - **PWA** : `vite-plugin-pwa`, cache Stale-While-Revalidate sur les réponses Supabase pour un fonctionnement hors-ligne avec les dernières données connues.
 
 ## Mise en route
@@ -58,9 +58,22 @@ Les zones de qualification européenne (Ligue des Champions / Europa / Conféren
 
 Un menu fixe en bas de l'écran ([`SeasonNav`](src/components/SeasonNav.tsx)) permet de basculer entre la saison actuelle et les 3 précédentes ; les onglets Classement/Calendrier du haut s'appliquent à la saison sélectionnée.
 
-## Coupe de Belgique
+## Coupe de Belgique (Croky Cup)
 
-Non implémentée : introuvable dans le catalogue de compétitions belges de TheSportsDB (plan gratuit), et API-Football bloque les mêmes saisons récentes que pour la ligue. À reprendre si une source de données fiable est trouvée.
+Ni API-Football (plan gratuit bloqué sur 2022-2024, y compris pour cette compétition — `league=147`) ni TheSportsDB (compétition absente du catalogue belge) ne donnent accès à la saison en cours. [`api/sync-cup.ts`](api/sync-cup.ts) scrape donc [footmercato.net](https://www.footmercato.net/belgique/coupe-de-belgique/calendrier/), dont les pages calendrier sont rendues côté serveur (classes `matchFull`, date ISO en attribut `datetime`, nom complet du club dans l'`alt` du logo) — assez stable pour un scraping léger avec `cheerio`, sans dépendre d'un modèle de langage à l'exécution.
+
+- **Périmètre** : seuls les tours où un club de D1 est engagé sont récupérés (6e tour pour KV Kortrijk et Lommel SK, puis seizièmes/huitièmes/quarts/demies/finale pour les 16 autres) — les ~270 matchs entre clubs amateurs des tours 1 à 5 ne sont jamais scrapés. Les URLs de ces phases sont redécouvertes à chaque synchro (liens de navigation de la page calendrier), pas codées en dur, pour survivre au changement d'identifiant numérique d'une saison à l'autre.
+- **Correspondance des clubs** : [`src/lib/d1ClubAliases.ts`](src/lib/d1ClubAliases.ts) fait le lien entre le nom utilisé par footmercato (souvent francisé : "Courtrai" pour Kortrijk, "Malines" pour Mechelen, "ZW" pour Zulte Waregem…) et l'id `teams` correspondant — partagé avec les synchros européennes ci-dessous. Les adversaires non-D1 (Challenger Pro League, amateurs) sont stockés en texte brut dans `cup_fixtures`, sans essayer de les rattacher à `teams`.
+- **Aucun match tant que le tableau n'est pas connu** : la Croky Cup 2026-2027 n'associe les clubs de D1 à un adversaire réel qu'une fois les tours précédents joués (tirage au sort progressif) — voir le [calendrier officiel de la RBFA](https://belgianfootball.s3.eu-central-1.amazonaws.com/s3fs-public/rbfa/docs/pdf/competition/crokycup2627.pdf). En attendant, [`src/lib/cupKnownEntries.ts`](src/lib/cupKnownEntries.ts) (saisi à la main depuis ce même PDF) affiche pour chaque club de D1 son tour d'entrée et sa date si elle est connue ("à confirmer" sinon) ; cette entrée disparaît dès qu'`api/sync-cup.ts` trouve le vrai match correspondant.
+- **Synchro** : cron quotidien séparé (`vercel.json`, `0 6 * * *`, décalé d'une heure par rapport à celui de la ligue) — même limite Vercel Hobby (1x/jour par cron) que documentée plus haut. Déclenchement manuel : `npm run sync-cup:local`.
+
+## Coupes d'Europe (Ligue des Champions, Europa League, Conference League)
+
+Même logique que la Croky Cup, réutilisant le même moteur de scraping ([`src/lib/footmercatoScraper.ts`](src/lib/footmercatoScraper.ts)) : `api/sync-cl.ts`, `api/sync-el.ts` et `api/sync-ecl.ts` sont trois instances fines de [`src/lib/europeSyncHandler.ts`](src/lib/europeSyncHandler.ts), qui ne diffèrent que par la compétition et l'URL de base footmercato. Les clubs belges qualifiés une saison donnée sont ceux déjà listés dans [`src/lib/europeanQualification.ts`](src/lib/europeanQualification.ts) (Club Brugge/Union SG en C1, Anderlecht/Saint-Trond en Europa, La Gantoise en Conference pour 2026-27) ; la détection réutilise [`src/lib/d1ClubAliases.ts`](src/lib/d1ClubAliases.ts).
+
+- **Périmètre** : contrairement à la Coupe, il n'y a pas de tour d'entrée fixe (dépend du coefficient/pot de chaque club), donc **toutes** les phases actuellement liées depuis la page calendrier de base sont récupérées à chaque synchro (tours de qualification, barrages, phase de ligue journée par journée, 8es/quarts/demies/finale) — une quinzaine de pages par compétition dans le pire cas, largement dans le budget d'une fonction serverless.
+- **Une seule table** `european_fixtures` pour les 3 compétitions, distinguées par la colonne `competition` ('CL' | 'EL' | 'ECL') ; l'onglet "Europe" affiche 3 sous-onglets qui filtrent dessus.
+- **Synchro** : trois crons distincts et décalés (`0 7`, `20 7`, `40 7`) — déclenchement manuel : `npm run sync-europe:local -- cl|el|ecl`.
 
 ## Logos des équipes (aucun lien externe)
 
@@ -82,7 +95,11 @@ Tailwind v4 n'utilise plus de `tailwind.config.js` classique : les couleurs sont
 
 ```
 api/sync.ts                        # Fonction serverless : TheSportsDB -> Supabase (fixtures uniquement)
+api/sync-cup.ts                    # Fonction serverless : scraping footmercato -> Supabase (Croky Cup, clubs D1 uniquement)
+api/sync-cl.ts, sync-el.ts, sync-ecl.ts  # Idem pour Ligue des Champions / Europa League / Conference League
 scripts/sync-local.mjs             # Déclenche la synchro en local (hors Vercel dev)
+scripts/sync-cup-local.mjs         # Déclenche la synchro Croky Cup en local
+scripts/sync-europe-local.mjs      # Déclenche une synchro européenne en local (cl|el|ecl)
 scripts/localize-logos.mjs         # Télécharge les logos en local, aucun lien externe
 scripts/generate-app-icon.mjs      # Génère les icônes PWA depuis pro-league-logo.jpg
 public/team-logos/                 # Logos des 18 clubs, servis en same-origin
@@ -91,10 +108,13 @@ supabase/seed.sql                  # Couleurs + logos locaux des 18 clubs actuel
 src/lib/standings.ts               # Calcul du classement depuis les résultats
 src/lib/historicalStandingsOverrides.ts  # Classement officiel 2025-26 (saisi à la main)
 src/lib/europeanQualification.ts   # Zones de qualification européenne (saisi à la main)
-src/hooks/                         # react-query (teams, fixtures) + favoris/online/PWA
+src/lib/footmercatoScraper.ts      # Moteur de scraping partagé (Coupe + Coupes d'Europe)
+src/lib/europeSyncHandler.ts       # Factory du handler de synchro pour les 3 coupes d'Europe
+src/lib/d1ClubAliases.ts           # Correspondance nom footmercato -> id `teams` (Coupe + Europe)
+src/hooks/                         # react-query (teams, fixtures, cup, europe) + favoris/online/PWA
 src/context/                       # TeamThemeContext (thème dynamique)
-src/components/                    # Header, StandingsTable, FixturesList, SeasonNav, ...
-vercel.json                        # Cron de synchronisation
+src/components/                    # Header, StandingsTable, FixturesList, CupFixturesList, EuropePage, MatchList, ...
+vercel.json                        # Crons de synchronisation
 ```
 
 ## Icônes PWA

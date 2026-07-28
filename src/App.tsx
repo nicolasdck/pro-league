@@ -4,10 +4,12 @@ import { OfflineBanner } from './components/OfflineBanner';
 import { PWAInstallPrompt } from './components/PWAInstallPrompt';
 import { StandingsTable } from './components/StandingsTable';
 import { FixturesList } from './components/FixturesList';
+import { CupFixturesList } from './components/CupFixturesList';
+import { EuropePage } from './components/EuropePage';
 import { SeasonNav } from './components/SeasonNav';
 import { currentSeason } from './lib/season';
 
-type Tab = 'standings' | 'fixtures';
+type Tab = 'standings' | 'fixtures' | 'cup' | 'europe';
 
 function App() {
   const [tab, setTab] = useState<Tab>('standings');
@@ -21,10 +23,15 @@ function App() {
       <nav className="flex border-b border-neutral-200 bg-white dark:border-neutral-800 dark:bg-neutral-900">
         <TabButton label="Classement" active={tab === 'standings'} onClick={() => setTab('standings')} />
         <TabButton label="Calendrier" active={tab === 'fixtures'} onClick={() => setTab('fixtures')} />
+        <TabButton label="Coupe" active={tab === 'cup'} onClick={() => setTab('cup')} />
+        <TabButton label="Europe" active={tab === 'europe'} onClick={() => setTab('europe')} />
       </nav>
 
       <main className="mx-auto max-w-3xl p-4 pb-20">
-        {tab === 'standings' ? <StandingsTable season={season} /> : <FixturesList season={season} />}
+        {tab === 'standings' && <StandingsTable season={season} />}
+        {tab === 'fixtures' && <FixturesList season={season} />}
+        {tab === 'cup' && <CupFixturesList />}
+        {tab === 'europe' && <EuropePage />}
       </main>
 
       <PWAInstallPrompt />
