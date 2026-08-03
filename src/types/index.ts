@@ -102,3 +102,17 @@ export interface NewsItem {
   publishedAt: string;
   teamIds: number[];
 }
+
+export type PlayerStatKind = 'goals' | 'assists';
+
+export interface PlayerStat {
+  kind: PlayerStatKind;
+  rank: number;
+  playerName: string;
+  playerImage: string | null;
+  teamId: number | null;
+  teamName: string;
+  teamLogo: string | null;
+  position: string | null;
+  value: number;
+}

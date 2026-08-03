@@ -9,6 +9,7 @@ import { EuropePage } from './components/EuropePage';
 import { SeasonNav } from './components/SeasonNav';
 import { TeamAgenda } from './components/TeamAgenda';
 import { NewsList } from './components/NewsList';
+import { TopPerformers } from './components/TopPerformers';
 import { currentSeason } from './lib/season';
 
 type Tab = 'standings' | 'fixtures' | 'cup' | 'europe' | 'news';
@@ -46,7 +47,12 @@ function App() {
       <TeamAgenda />
 
       <main className="mx-auto max-w-3xl p-4 pb-20">
-        {tab === 'standings' && <StandingsTable season={season} />}
+        {tab === 'standings' && (
+          <>
+            <StandingsTable season={season} />
+            {season === currentSeason() && <TopPerformers />}
+          </>
+        )}
         {tab === 'fixtures' && <FixturesList season={season} />}
         {tab === 'cup' && <CupFixturesList />}
         {tab === 'europe' && <EuropePage />}

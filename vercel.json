@@ -5,7 +5,8 @@
     "api/sync-cl.ts": { "maxDuration": 60 },
     "api/sync-el.ts": { "maxDuration": 60 },
     "api/sync-ecl.ts": { "maxDuration": 60 },
-    "api/sync-news.ts": { "maxDuration": 30 }
+    "api/sync-news.ts": { "maxDuration": 30 },
+    "api/sync-player-stats.ts": { "maxDuration": 30 }
   },
   "crons": [
     { "path": "/api/sync", "schedule": "0 5 * * *" },
@@ -13,6 +14,7 @@
     { "path": "/api/sync-cl", "schedule": "0 7 * * *" },
     { "path": "/api/sync-el", "schedule": "20 7 * * *" },
     { "path": "/api/sync-ecl", "schedule": "40 7 * * *" },
-    { "path": "/api/sync-news", "schedule": "0 8 * * *" }
+    { "path": "/api/sync-news", "schedule": "0 8 * * *" },
+    { "path": "/api/sync-player-stats", "schedule": "20 8 * * *" }
   ]
 }
