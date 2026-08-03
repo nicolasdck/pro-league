@@ -11,9 +11,9 @@ export default defineConfig({
 			registerType: 'autoUpdate',
 			includeAssets: ['favicon.svg', 'apple-touch-icon.png'],
 			manifest: {
-				name: 'Jupiler Pro League',
+				name: 'Pro League',
 				short_name: 'Pro League',
-				description: 'Classement, calendrier et résultats de la Jupiler Pro League',
+				description: 'Classement, calendrier et résultats de la Pro League',
 				theme_color: '#1f2937',
 				background_color: '#1f2937',
 				display: 'standalone',
@@ -38,16 +38,20 @@ export default defineConfig({
 					{
 						name: 'Classement',
 						short_name: 'Classement',
-						description: 'Voir le classement de la Jupiler Pro League',
+						description: 'Voir le classement de la Pro League',
 						url: '/?tab=standings',
-						icons: [{ src: '/icon-192.png', sizes: '192x192', type: 'image/png' }],
+						icons: [
+							{ src: '/icon-192.png', sizes: '192x192', type: 'image/png' },
+						],
 					},
 					{
 						name: 'Mon équipe',
 						short_name: 'Mon équipe',
 						description: 'Voir le calendrier de mon équipe favorite',
 						url: '/?tab=fixtures',
-						icons: [{ src: '/icon-192.png', sizes: '192x192', type: 'image/png' }],
+						icons: [
+							{ src: '/icon-192.png', sizes: '192x192', type: 'image/png' },
+						],
 					},
 				],
 			},

@@ -1,4 +1,4 @@
-# Jupiler Pro League PWA
+# Pro League PWA
 
 Suivi de la Division 1A belge (classement, calendrier, résultats, historique 3 saisons), en React + TypeScript + Tailwind CSS v4, installable en PWA.
 

@@ -1,4 +1,4 @@
--- Jupiler Pro League PWA — Supabase schema
+-- Pro League PWA — Supabase schema
 -- Run this in the Supabase SQL editor (or via `supabase db push`).
 
 create extension if not exists "pgcrypto";

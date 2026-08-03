@@ -33,7 +33,7 @@ function App() {
 
   return (
     <div className="min-h-screen bg-neutral-50 dark:bg-neutral-900 dark:text-neutral-100">
-      <Header />
+      <Header isNewsActive={tab === 'news'} onNewsClick={() => setTab('news')} />
       <OfflineBanner />
 
       <nav className="flex border-b border-neutral-200 bg-white dark:border-neutral-800 dark:bg-neutral-900">
@@ -41,7 +41,6 @@ function App() {
         <TabButton label="Calendrier" active={tab === 'fixtures'} onClick={() => setTab('fixtures')} />
         <TabButton label="Coupe" active={tab === 'cup'} onClick={() => setTab('cup')} />
         <TabButton label="Europe" active={tab === 'europe'} onClick={() => setTab('europe')} />
-        <TabButton label="Actus" active={tab === 'news'} onClick={() => setTab('news')} />
       </nav>
 
       <TeamAgenda />
