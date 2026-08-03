@@ -1,9 +1,21 @@
 import { useState } from 'react';
 import { useEuropeanFixtures } from '../hooks/useEuropeanFixtures';
 import { useTeamTheme } from '../hooks/useTeamTheme';
-import { MatchList } from './MatchList';
+import { MatchList, type BroadcastInfo } from './MatchList';
 import { EuropeHistory } from './EuropeHistory';
 import type { EuropeanCompetition } from '../types';
+
+// Free-to-air rights in Belgium (francophone) for European club football,
+// 2026-27 season: RTBF (La Deux/Tipik + Auvio) always shows the Belgian
+// club's own EL/ECL matches — our `european_fixtures` rows are exactly
+// that (only Belgian-club matches are ever scraped in). RTL only airs one
+// "affiche" per Champions League matchday, which isn't necessarily the
+// Belgian club's game, so that link is hedged rather than a firm claim.
+const BROADCAST_INFO: Record<EuropeanCompetition, BroadcastInfo> = {
+  CL: { label: 'Peut-être sur RTL Play (1 affiche/journée)', url: 'https://www.rtlplay.be/rtlplay' },
+  EL: { label: 'Gratuit : La Deux/Tipik (RTBF) · Auvio', url: 'https://auvio.rtbf.be/direct' },
+  ECL: { label: 'Gratuit : La Deux/Tipik (RTBF) · Auvio', url: 'https://auvio.rtbf.be/direct' },
+};
 
 const COMPETITIONS: Array<{ code: EuropeanCompetition; label: string; emptyMessage: string }> = [
   {
@@ -99,7 +111,14 @@ function CompetitionSection({
       <div className="p-4 text-center text-sm text-red-600">Impossible de charger cette compétition pour le moment.</div>
     );
   }
-  return <MatchList fixtures={fixtures ?? []} favoriteTeamId={favoriteTeamId} emptyMessage={active.emptyMessage} />;
+  return (
+    <MatchList
+      fixtures={fixtures ?? []}
+      favoriteTeamId={favoriteTeamId}
+      emptyMessage={active.emptyMessage}
+      broadcast={BROADCAST_INFO[competition]}
+    />
+  );
 }
 
 function EuropeHistorySection({

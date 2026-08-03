@@ -1,7 +1,16 @@
 import { useMemo, useState, type ReactNode } from 'react';
-import { ChevronLeft, ChevronRight } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Tv } from 'lucide-react';
 import { StatusBadge } from './StatusBadge';
 import type { MatchOpponent } from '../types';
+
+// Free-to-air broadcast info for an upcoming match — applies to every NS
+// fixture in the list (broadcast rights are negotiated per-competition/
+// per-matchday, not known match-by-match), so it's passed once from the
+// caller rather than carried on MatchListFixture itself.
+export interface BroadcastInfo {
+  label: string;
+  url: string;
+}
 
 // Structural shape shared by CupFixture and EuropeanFixture (see src/types) —
 // used by both CupFixturesList and EuropePage so the phase-pagination /
@@ -43,10 +52,12 @@ export function MatchList({
   fixtures,
   favoriteTeamId,
   emptyMessage,
+  broadcast,
 }: {
   fixtures: MatchListFixture[];
   favoriteTeamId: number | null;
   emptyMessage: ReactNode;
+  broadcast?: BroadcastInfo;
 }) {
   const [manualPhase, setManualPhase] = useState<string | null>(null);
 
@@ -117,6 +128,17 @@ export function MatchList({
                     </div>
                     <OpponentRow opponent={fixture.awayTeam} align="right" />
                   </div>
+                  {!isPlayed && broadcast && (
+                    <a
+                      href={broadcast.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="mt-2 flex items-center justify-center gap-1.5 text-xs font-medium text-team-primary hover:underline"
+                    >
+                      <Tv className="h-3.5 w-3.5" />
+                      {broadcast.label}
+                    </a>
+                  )}
                 </div>
               );
             })}
