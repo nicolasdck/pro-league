@@ -14,6 +14,17 @@ const EUROPEAN_COMPETITION_DOT: Record<EuropeanCompetition, string> = {
   ECL: 'bg-emerald-500',
 };
 
+// Live projection ("if the season ended today") of the two zones fixed by
+// the Pro League's 18-club, no-playoffs format introduced in 2026-27: the
+// champion plus 2nd-4th get a European ticket (proleague.be Q&R on the
+// format change), and the bottom two are relegated directly (no barrage).
+// Only valid for that flat round-robin format — earlier seasons used a
+// Championship/Europe/Relegation playoff split that doesn't map onto a
+// single table position, so this is gated to season >= 2026.
+const EUROPE_ZONE_SIZE = 4;
+const RELEGATION_ZONE_SIZE = 2;
+const ZONE_RULES_FIRST_SEASON = 2026;
+
 export function StandingsTable({ season }: { season?: number } = {}) {
   const { data: standings, isLoading, isError } = useStandings(season);
   const { favoriteTeamId } = useTeamTheme();
@@ -33,6 +44,7 @@ export function StandingsTable({ season }: { season?: number } = {}) {
   const competitionsShown = new Set(
     standings.map((standing) => standing.europeanCompetition).filter((c): c is EuropeanCompetition => !!c),
   );
+  const zoneRulesApply = (standings[0]?.season ?? 0) >= ZONE_RULES_FIRST_SEASON;
 
   return (
     <div>
@@ -55,15 +67,20 @@ export function StandingsTable({ season }: { season?: number } = {}) {
           <tbody>
             {standings.map((standing) => {
               const isFavorite = standing.teamId === favoriteTeamId;
+              const isRelegationZone = zoneRulesApply && standing.rank > standings.length - RELEGATION_ZONE_SIZE;
+              const isEuropeZone = zoneRulesApply && standing.rank <= EUROPE_ZONE_SIZE;
+
+              let rowClassName = 'border-b border-neutral-100 dark:border-neutral-800';
+              if (isFavorite) {
+                rowClassName = 'border-l-4 border-team-primary bg-team-primary/10 font-semibold';
+              } else if (isRelegationZone) {
+                rowClassName = 'border-l-4 border-red-400 border-b border-neutral-100 dark:border-neutral-800';
+              } else if (isEuropeZone) {
+                rowClassName = 'border-l-4 border-emerald-400 border-b border-neutral-100 dark:border-neutral-800';
+              }
+
               return (
-                <tr
-                  key={standing.teamId}
-                  className={
-                    isFavorite
-                      ? 'border-l-4 border-team-primary bg-team-primary/10 font-semibold'
-                      : 'border-b border-neutral-100 dark:border-neutral-800'
-                  }
-                >
+                <tr key={standing.teamId} className={rowClassName}>
                   <td className="px-3 py-2">
                     <div className="flex items-center gap-1.5">
                       {standing.europeanCompetition && (
@@ -106,6 +123,19 @@ export function StandingsTable({ season }: { season?: number } = {}) {
                 {EUROPEAN_COMPETITION_LABELS[competition]}
               </span>
             ))}
+        </div>
+      )}
+
+      {zoneRulesApply && (
+        <div className="flex flex-wrap gap-x-4 gap-y-1 px-3 py-2 text-xs text-neutral-500">
+          <span className="flex items-center gap-1.5">
+            <span className="h-2 w-2 rounded-full bg-emerald-400" />
+            Places européennes (top {EUROPE_ZONE_SIZE})
+          </span>
+          <span className="flex items-center gap-1.5">
+            <span className="h-2 w-2 rounded-full bg-red-400" />
+            Relégation directe
+          </span>
         </div>
       )}
     </div>

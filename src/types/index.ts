@@ -73,6 +73,7 @@ export interface CupFixture {
   awayScore: number | null;
   homePenalty: number | null; // set only when the tie was decided on penalties
   awayPenalty: number | null;
+  matchUrl: string | null; // footmercato detail page, used to load buteurs/cartons on demand
   homeTeam: MatchOpponent;
   awayTeam: MatchOpponent;
 }
@@ -87,6 +88,7 @@ export interface EuropeanFixture {
   awayScore: number | null;
   homePenalty: number | null; // set only when the tie was decided on penalties
   awayPenalty: number | null;
+  matchUrl: string | null; // footmercato detail page, used to load buteurs/cartons on demand
   homeTeam: MatchOpponent;
   awayTeam: MatchOpponent;
 }

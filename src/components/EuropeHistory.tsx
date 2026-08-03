@@ -1,4 +1,6 @@
+import { useState } from 'react';
 import { OpponentRow } from './MatchList';
+import { MatchEventsPanel } from './MatchEventsPanel';
 import type { EuropeanFixture } from '../types';
 
 const dateFormatter = new Intl.DateTimeFormat('fr-BE', {
@@ -23,6 +25,7 @@ export function EuropeHistory({
   fixtures: EuropeanFixture[];
   favoriteTeamId: number | null;
 }) {
+  const [expandedId, setExpandedId] = useState<string | null>(null);
   const played = fixtures.filter((fixture) => fixture.status === 'FT');
 
   if (played.length === 0) {
@@ -42,14 +45,19 @@ export function EuropeHistory({
             {dayFixtures.map((fixture) => {
               const involvesFavorite =
                 fixture.homeTeam.id === favoriteTeamId || fixture.awayTeam.id === favoriteTeamId;
+              const isExpandable = !!fixture.matchUrl;
+              const isExpanded = isExpandable && expandedId === fixture.id;
 
               return (
                 <div
                   key={fixture.id}
+                  onClick={isExpandable ? () => setExpandedId(isExpanded ? null : fixture.id) : undefined}
+                  role={isExpandable ? 'button' : undefined}
+                  tabIndex={isExpandable ? 0 : undefined}
                   className={
                     involvesFavorite
-                      ? 'rounded-xl border border-team-primary bg-team-primary/5 p-3 shadow-sm'
-                      : 'rounded-xl border border-neutral-200 p-3 shadow-sm dark:border-neutral-800'
+                      ? `rounded-xl border border-team-primary bg-team-primary/5 p-3 shadow-sm ${isExpandable ? 'cursor-pointer' : ''}`
+                      : `rounded-xl border border-neutral-200 p-3 shadow-sm dark:border-neutral-800 ${isExpandable ? 'cursor-pointer' : ''}`
                   }
                 >
                   <div className="mb-2 flex items-center justify-center text-xs font-semibold text-neutral-500">
@@ -67,6 +75,7 @@ export function EuropeHistory({
                       {fixture.homePenalty} - {fixture.awayPenalty} tab
                     </div>
                   )}
+                  {isExpanded && <MatchEventsPanel matchUrl={fixture.matchUrl} />}
                 </div>
               );
             })}

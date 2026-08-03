@@ -3,6 +3,8 @@ import { useEuropeanFixtures } from '../hooks/useEuropeanFixtures';
 import { useTeamTheme } from '../hooks/useTeamTheme';
 import { MatchList, type BroadcastInfo } from './MatchList';
 import { EuropeHistory } from './EuropeHistory';
+import { BracketView } from './BracketView';
+import { EUROPEAN_KNOCKOUT_PHASES } from '../lib/knockoutPhases';
 import type { EuropeanCompetition } from '../types';
 
 // Free-to-air rights in Belgium (francophone) for European club football,
@@ -35,7 +37,7 @@ const COMPETITIONS: Array<{ code: EuropeanCompetition; label: string; emptyMessa
   },
 ];
 
-type View = 'calendar' | 'history';
+type View = 'calendar' | 'history' | 'bracket';
 
 export function EuropePage() {
   const [competition, setCompetition] = useState<EuropeanCompetition>('CL');
@@ -84,13 +86,22 @@ export function EuropePage() {
         >
           Historique
         </button>
+        <button
+          type="button"
+          onClick={() => setView('bracket')}
+          className={
+            view === 'bracket'
+              ? 'flex-1 rounded-full bg-white px-2 py-1 font-semibold text-team-primary shadow-sm dark:bg-neutral-900'
+              : 'flex-1 rounded-full px-2 py-1 font-medium text-neutral-500'
+          }
+        >
+          Tableau
+        </button>
       </div>
 
-      {view === 'history' ? (
-        <EuropeHistorySection competition={competition} favoriteTeamId={favoriteTeamId} />
-      ) : (
-        <CompetitionSection competition={competition} favoriteTeamId={favoriteTeamId} />
-      )}
+      {view === 'history' && <EuropeHistorySection competition={competition} favoriteTeamId={favoriteTeamId} />}
+      {view === 'bracket' && <BracketSection competition={competition} favoriteTeamId={favoriteTeamId} />}
+      {view === 'calendar' && <CompetitionSection competition={competition} favoriteTeamId={favoriteTeamId} />}
     </div>
   );
 }
@@ -137,4 +148,30 @@ function EuropeHistorySection({
     );
   }
   return <EuropeHistory fixtures={fixtures ?? []} favoriteTeamId={favoriteTeamId} />;
+}
+
+function BracketSection({
+  competition,
+  favoriteTeamId,
+}: {
+  competition: EuropeanCompetition;
+  favoriteTeamId: number | null;
+}) {
+  const active = COMPETITIONS.find((c) => c.code === competition)!;
+  const { data: fixtures, isLoading, isError } = useEuropeanFixtures(competition);
+
+  if (isLoading) return <div className="p-4 text-center text-sm text-neutral-500">Chargement…</div>;
+  if (isError) {
+    return (
+      <div className="p-4 text-center text-sm text-red-600">Impossible de charger cette compétition pour le moment.</div>
+    );
+  }
+  return (
+    <BracketView
+      fixtures={fixtures ?? []}
+      favoriteTeamId={favoriteTeamId}
+      phaseOrder={EUROPEAN_KNOCKOUT_PHASES}
+      emptyMessage={active.emptyMessage}
+    />
+  );
 }

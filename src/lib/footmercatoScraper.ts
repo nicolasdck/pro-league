@@ -171,3 +171,65 @@ export async function fetchPenaltyScore(matchUrl: string): Promise<PenaltyScore 
   });
   return penalty;
 }
+
+export interface MatchEvent {
+  minute: string; // e.g. "45+1'", "90'" — footmercato's own notation, not parsed into a number
+  side: 'home' | 'away';
+  player: string;
+  detail: string | null; // assist (goals) or reason (cards), when footmercato shows one
+}
+
+export interface MatchEvents {
+  goals: MatchEvent[];
+  yellowCards: MatchEvent[];
+  redCards: MatchEvent[];
+}
+
+function minuteSortValue(minute: string): number {
+  const match = minute.match(/(\d+)(?:\+(\d+))?/);
+  if (!match) return 0;
+  return Number(match[1]) + Number(match[2] ?? 0) / 10;
+}
+
+// Goals, yellow and red cards, read from the match detail page's "temps
+// forts" (highlights) feed — the only place footmercato exposes them (the
+// calendar listing only has the final score). A goal event is the one with
+// a `.matchHighlights__eventScore` sibling (the running score after it);
+// cards are told apart by the icon's `colorYellowCardSvg`/`colorRedCardSvg`
+// class. Substitutions use a third icon (no score, no card class) and are
+// deliberately not collected — out of scope for a "buteurs et cartons" view.
+export async function fetchMatchEvents(matchUrl: string): Promise<MatchEvents> {
+  const html = await fetchHtml(matchUrl);
+  const $ = cheerio.load(html);
+
+  const goals: MatchEvent[] = [];
+  const yellowCards: MatchEvent[] = [];
+  const redCards: MatchEvent[] = [];
+
+  $('.matchHighlights__event').each((_, el) => {
+    const event = $(el);
+    const isHome = event.hasClass('matchHighlights__event--home');
+    const isAway = event.hasClass('matchHighlights__event--away');
+    if (!isHome && !isAway) return; // period separators, "pas d'événements majeurs" placeholder, etc.
+
+    const player = event.find('.matchHighlights__eventPersonName').first().text().trim();
+    if (!player) return;
+
+    const minute = event.find('.matchHighlights__eventNumber').first().text().trim();
+    const detailText = event.find('.matchHighlights__eventPersonName__extra').first().text().trim();
+    const detail = detailText ? detailText.replace(/^\(|\)$/g, '') : null;
+    const side: MatchEvent['side'] = isHome ? 'home' : 'away';
+    const matchEvent: MatchEvent = { minute, side, player, detail };
+
+    if (event.find('.matchHighlights__eventScore').length > 0) {
+      goals.push(matchEvent);
+    } else if (event.find('svg.colorYellowCardSvg').length > 0) {
+      yellowCards.push(matchEvent);
+    } else if (event.find('svg.colorRedCardSvg').length > 0) {
+      redCards.push(matchEvent);
+    }
+  });
+
+  const byMinuteAsc = (a: MatchEvent, b: MatchEvent) => minuteSortValue(a.minute) - minuteSortValue(b.minute);
+  return { goals: goals.sort(byMinuteAsc), yellowCards: yellowCards.sort(byMinuteAsc), redCards: redCards.sort(byMinuteAsc) };
+}

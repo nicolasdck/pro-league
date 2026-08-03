@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Header } from './components/Header';
 import { OfflineBanner } from './components/OfflineBanner';
 import { PWAInstallPrompt } from './components/PWAInstallPrompt';
@@ -11,8 +11,22 @@ import { currentSeason } from './lib/season';
 
 type Tab = 'standings' | 'fixtures' | 'cup' | 'europe';
 
+const VALID_TABS: Tab[] = ['standings', 'fixtures', 'cup', 'europe'];
+
+// Reads the `?tab=` param set by a PWA shortcut (see vite.config.ts) so a
+// long-press launch lands directly on that tab instead of always opening
+// on Classement. Only consulted once, at mount.
+function initialTabFromUrl(): Tab {
+  const requested = new URLSearchParams(window.location.search).get('tab');
+  return VALID_TABS.includes(requested as Tab) ? (requested as Tab) : 'standings';
+}
+
 function App() {
-  const [tab, setTab] = useState<Tab>('standings');
+  const [tab, setTab] = useState<Tab>(initialTabFromUrl);
+
+  useEffect(() => {
+    if (window.location.search) window.history.replaceState(null, '', window.location.pathname);
+  }, []);
   const [season, setSeason] = useState<number>(currentSeason());
 
   return (

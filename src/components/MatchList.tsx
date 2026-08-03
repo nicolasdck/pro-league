@@ -1,6 +1,7 @@
 import { useMemo, useState, type ReactNode } from 'react';
 import { ChevronLeft, ChevronRight, Tv } from 'lucide-react';
 import { StatusBadge } from './StatusBadge';
+import { MatchEventsPanel } from './MatchEventsPanel';
 import type { MatchOpponent } from '../types';
 
 // Free-to-air broadcast info for an upcoming match — applies to every NS
@@ -24,6 +25,7 @@ export interface MatchListFixture {
   awayScore: number | null;
   homePenalty: number | null;
   awayPenalty: number | null;
+  matchUrl: string | null;
   homeTeam: MatchOpponent;
   awayTeam: MatchOpponent;
 }
@@ -62,6 +64,7 @@ export function MatchList({
   broadcast?: BroadcastInfo;
 }) {
   const [manualPhase, setManualPhase] = useState<string | null>(null);
+  const [expandedId, setExpandedId] = useState<string | null>(null);
 
   const phases = useMemo(() => Array.from(new Set(fixtures.map((f) => f.phase))), [fixtures]);
   const defaultPhase = useMemo(() => pickDefaultPhase(phases, fixtures), [phases, fixtures]);
@@ -106,14 +109,19 @@ export function MatchList({
               const involvesFavorite =
                 fixture.homeTeam.id === favoriteTeamId || fixture.awayTeam.id === favoriteTeamId;
               const isPlayed = fixture.status === 'FT';
+              const isExpandable = isPlayed && !!fixture.matchUrl;
+              const isExpanded = isExpandable && expandedId === fixture.id;
 
               return (
                 <div
                   key={fixture.id}
+                  onClick={isExpandable ? () => setExpandedId(isExpanded ? null : fixture.id) : undefined}
+                  role={isExpandable ? 'button' : undefined}
+                  tabIndex={isExpandable ? 0 : undefined}
                   className={
                     involvesFavorite
-                      ? 'rounded-xl border border-team-primary bg-team-primary/5 p-3 shadow-sm'
-                      : 'rounded-xl border border-neutral-200 p-3 shadow-sm dark:border-neutral-800'
+                      ? `rounded-xl border border-team-primary bg-team-primary/5 p-3 shadow-sm ${isExpandable ? 'cursor-pointer' : ''}`
+                      : `rounded-xl border border-neutral-200 p-3 shadow-sm dark:border-neutral-800 ${isExpandable ? 'cursor-pointer' : ''}`
                   }
                 >
                   <div className="mb-2 flex justify-center">
@@ -140,12 +148,14 @@ export function MatchList({
                       href={broadcast.url}
                       target="_blank"
                       rel="noopener noreferrer"
+                      onClick={(event) => event.stopPropagation()}
                       className="mt-2 flex items-center justify-center gap-1.5 text-xs font-medium text-team-primary hover:underline"
                     >
                       <Tv className="h-3.5 w-3.5" />
                       {broadcast.label}
                     </a>
                   )}
+                  {isExpanded && <MatchEventsPanel matchUrl={fixture.matchUrl} />}
                 </div>
               );
             })}

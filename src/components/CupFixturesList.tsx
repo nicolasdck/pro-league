@@ -1,17 +1,22 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { useCupFixtures } from '../hooks/useCupFixtures';
 import { useTeams } from '../hooks/useTeams';
 import { useTeamTheme } from '../hooks/useTeamTheme';
 import { CUP_KNOWN_ENTRIES, type CupKnownEntry } from '../lib/cupKnownEntries';
+import { CUP_KNOCKOUT_PHASES } from '../lib/knockoutPhases';
 import { MatchList } from './MatchList';
+import { BracketView } from './BracketView';
 import type { Team } from '../types';
 
 const dayOnlyFormatter = new Intl.DateTimeFormat('fr-BE', { day: 'numeric', month: 'long' });
+
+type View = 'calendar' | 'bracket';
 
 export function CupFixturesList() {
   const { data: fixtures, isLoading: fixturesLoading, isError: fixturesError } = useCupFixtures();
   const { data: teams, isLoading: teamsLoading } = useTeams();
   const { favoriteTeamId } = useTeamTheme();
+  const [view, setView] = useState<View>('calendar');
 
   const pendingEntries = useMemo(() => {
     const teamIdsWithRealFixture = new Set(
@@ -37,11 +42,46 @@ export function CupFixturesList() {
       {pendingEntries.length > 0 && (
         <PendingEntriesPanel entries={pendingEntries} teams={teams ?? []} favoriteTeamId={favoriteTeamId} />
       )}
-      <MatchList
-        fixtures={fixtures}
-        favoriteTeamId={favoriteTeamId}
-        emptyMessage="Aucun club de D1 n'est encore entré en lice dans la Croky Cup."
-      />
+
+      <div className="flex gap-1 rounded-full bg-neutral-100 p-1 text-xs dark:bg-neutral-800">
+        <button
+          type="button"
+          onClick={() => setView('calendar')}
+          className={
+            view === 'calendar'
+              ? 'flex-1 rounded-full bg-white px-2 py-1 font-semibold text-team-primary shadow-sm dark:bg-neutral-900'
+              : 'flex-1 rounded-full px-2 py-1 font-medium text-neutral-500'
+          }
+        >
+          Calendrier
+        </button>
+        <button
+          type="button"
+          onClick={() => setView('bracket')}
+          className={
+            view === 'bracket'
+              ? 'flex-1 rounded-full bg-white px-2 py-1 font-semibold text-team-primary shadow-sm dark:bg-neutral-900'
+              : 'flex-1 rounded-full px-2 py-1 font-medium text-neutral-500'
+          }
+        >
+          Tableau
+        </button>
+      </div>
+
+      {view === 'calendar' ? (
+        <MatchList
+          fixtures={fixtures}
+          favoriteTeamId={favoriteTeamId}
+          emptyMessage="Aucun club de D1 n'est encore entré en lice dans la Croky Cup."
+        />
+      ) : (
+        <BracketView
+          fixtures={fixtures}
+          favoriteTeamId={favoriteTeamId}
+          phaseOrder={CUP_KNOCKOUT_PHASES}
+          emptyMessage="Aucun club de D1 n'est encore entré en lice dans la Croky Cup."
+        />
+      )}
     </div>
   );
 }

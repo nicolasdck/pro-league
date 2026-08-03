@@ -32,6 +32,24 @@ export default defineConfig({
 						purpose: 'any',
 					},
 				],
+				// Long-press the installed icon (Android/desktop) to jump straight
+				// past the tab bar — read back by App.tsx's `?tab=` handling.
+				shortcuts: [
+					{
+						name: 'Classement',
+						short_name: 'Classement',
+						description: 'Voir le classement de la Jupiler Pro League',
+						url: '/?tab=standings',
+						icons: [{ src: '/icon-192.png', sizes: '192x192', type: 'image/png' }],
+					},
+					{
+						name: 'Mon équipe',
+						short_name: 'Mon équipe',
+						description: 'Voir le calendrier de mon équipe favorite',
+						url: '/?tab=fixtures',
+						icons: [{ src: '/icon-192.png', sizes: '192x192', type: 'image/png' }],
+					},
+				],
 			},
 			workbox: {
 				// Default globPatterns don't cover public/ assets like the team

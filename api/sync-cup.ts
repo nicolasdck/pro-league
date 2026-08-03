@@ -45,6 +45,7 @@ interface CupFixtureRow {
   away_score: number | null;
   home_penalty: number | null;
   away_penalty: number | null;
+  match_url: string | null;
   source_url: string;
   updated_at: string;
 }
@@ -115,6 +116,7 @@ async function syncCupFixtures(supabase: SupabaseClient): Promise<{ requestsUsed
         away_score: match.awayScore,
         home_penalty: homePenalty,
         away_penalty: awayPenalty,
+        match_url: match.matchUrl,
         source_url: link.url,
         updated_at: now,
       });
