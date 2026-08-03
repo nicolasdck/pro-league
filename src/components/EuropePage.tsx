@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useEuropeanFixtures, useAllEuropeanFixtures } from '../hooks/useEuropeanFixtures';
+import { useEuropeanFixtures } from '../hooks/useEuropeanFixtures';
 import { useTeamTheme } from '../hooks/useTeamTheme';
 import { MatchList } from './MatchList';
 import { EuropeHistory } from './EuropeHistory';
@@ -70,12 +70,12 @@ export function EuropePage() {
               : 'flex-1 rounded-full px-2 py-1 font-medium text-neutral-500'
           }
         >
-          Historique (tous clubs belges)
+          Historique
         </button>
       </div>
 
       {view === 'history' ? (
-        <EuropeHistorySection favoriteTeamId={favoriteTeamId} />
+        <EuropeHistorySection competition={competition} favoriteTeamId={favoriteTeamId} />
       ) : (
         <CompetitionSection competition={competition} favoriteTeamId={favoriteTeamId} />
       )}
@@ -102,8 +102,14 @@ function CompetitionSection({
   return <MatchList fixtures={fixtures ?? []} favoriteTeamId={favoriteTeamId} emptyMessage={active.emptyMessage} />;
 }
 
-function EuropeHistorySection({ favoriteTeamId }: { favoriteTeamId: number | null }) {
-  const { data: fixtures, isLoading, isError } = useAllEuropeanFixtures();
+function EuropeHistorySection({
+  competition,
+  favoriteTeamId,
+}: {
+  competition: EuropeanCompetition;
+  favoriteTeamId: number | null;
+}) {
+  const { data: fixtures, isLoading, isError } = useEuropeanFixtures(competition);
 
   if (isLoading) return <div className="p-4 text-center text-sm text-neutral-500">Chargement…</div>;
   if (isError) {

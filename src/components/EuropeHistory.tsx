@@ -1,11 +1,5 @@
 import { OpponentRow } from './MatchList';
-import type { EuropeanFixture, EuropeanCompetition } from '../types';
-
-const COMPETITION_LABELS: Record<EuropeanCompetition, string> = {
-  CL: 'Ligue des Champions',
-  EL: 'Europa League',
-  ECL: 'Conference League',
-};
+import type { EuropeanFixture } from '../types';
 
 const dateFormatter = new Intl.DateTimeFormat('fr-BE', {
   weekday: 'long',
@@ -58,10 +52,8 @@ export function EuropeHistory({
                       : 'rounded-xl border border-neutral-200 p-3 shadow-sm dark:border-neutral-800'
                   }
                 >
-                  <div className="mb-2 flex items-center justify-center gap-1.5 text-xs font-semibold text-neutral-500">
-                    <span>{COMPETITION_LABELS[fixture.competition]}</span>
-                    <span aria-hidden="true">·</span>
-                    <span>{fixture.phase}</span>
+                  <div className="mb-2 flex items-center justify-center text-xs font-semibold text-neutral-500">
+                    {fixture.phase}
                   </div>
                   <div className="flex items-center justify-between gap-2">
                     <OpponentRow opponent={fixture.homeTeam} align="left" />
