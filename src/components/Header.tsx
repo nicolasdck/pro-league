@@ -1,12 +1,18 @@
-import { Newspaper, Trophy } from 'lucide-react';
+import { Newspaper } from 'lucide-react';
 import { TeamSelector } from './TeamSelector';
 
-export function Header({ isNewsActive, onNewsClick }: { isNewsActive: boolean; onNewsClick: () => void }) {
+export function Header({
+	isNewsActive,
+	onNewsClick,
+}: {
+	isNewsActive: boolean;
+	onNewsClick: () => void;
+}) {
 	return (
 		<header className="flex items-center justify-between bg-team-secondary p-2 text-team-secondary-fg shadow-sm">
 			<div className="flex items-center gap-3">
 				<div className="flex items-center gap-2 font-bold">
-					<Trophy className="h-6 w-6 text-team-primary" />
+					<span className="text-3xl">⚽</span>
 					<span>Pro League</span>
 				</div>
 				<button
