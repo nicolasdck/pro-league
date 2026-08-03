@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { Header } from './components/Header';
 import { OfflineBanner } from './components/OfflineBanner';
 import { PWAInstallPrompt } from './components/PWAInstallPrompt';
+import { UpdatePrompt } from './components/UpdatePrompt';
 import { StandingsTable } from './components/StandingsTable';
 import { FixturesList } from './components/FixturesList';
 import { CupFixturesList } from './components/CupFixturesList';
@@ -60,6 +61,7 @@ function App() {
       </main>
 
       <PWAInstallPrompt />
+      <UpdatePrompt />
       <SeasonNav selectedSeason={season} onSelect={setSeason} />
     </div>
   );

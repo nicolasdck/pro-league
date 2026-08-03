@@ -8,7 +8,12 @@ export default defineConfig({
 		react(),
 		tailwindcss(),
 		VitePWA({
-			registerType: 'autoUpdate',
+			// 'prompt' (not 'autoUpdate') + injectRegister: null: registration is
+			// done by hand via the `virtual:pwa-register/react` hook (see
+			// UpdatePrompt.tsx), so a new build waits for the user to click
+			// "Rafraîchir" instead of silently reloading the page under them.
+			registerType: 'prompt',
+			injectRegister: null,
 			includeAssets: ['favicon.svg', 'apple-touch-icon.png'],
 			manifest: {
 				name: 'Pro League',
