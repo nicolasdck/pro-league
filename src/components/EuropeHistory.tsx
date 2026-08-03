@@ -62,6 +62,11 @@ export function EuropeHistory({
                     </div>
                     <OpponentRow opponent={fixture.awayTeam} align="right" />
                   </div>
+                  {fixture.homePenalty !== null && fixture.awayPenalty !== null && (
+                    <div className="mt-1 text-center text-xs text-neutral-500">
+                      {fixture.homePenalty} - {fixture.awayPenalty} tab
+                    </div>
+                  )}
                 </div>
               );
             })}

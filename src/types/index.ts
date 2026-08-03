@@ -71,6 +71,8 @@ export interface CupFixture {
   status: Extract<FixtureStatus, 'NS' | 'FT'>;
   homeScore: number | null;
   awayScore: number | null;
+  homePenalty: number | null; // set only when the tie was decided on penalties
+  awayPenalty: number | null;
   homeTeam: MatchOpponent;
   awayTeam: MatchOpponent;
 }
@@ -83,6 +85,8 @@ export interface EuropeanFixture {
   status: Extract<FixtureStatus, 'NS' | 'FT'>;
   homeScore: number | null;
   awayScore: number | null;
+  homePenalty: number | null; // set only when the tie was decided on penalties
+  awayPenalty: number | null;
   homeTeam: MatchOpponent;
   awayTeam: MatchOpponent;
 }

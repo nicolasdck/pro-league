@@ -20,6 +20,7 @@ const USER_AGENT = 'Mozilla/5.0 (compatible; pro-league-app/1.0; +https://github
 
 export interface RawMatch {
   liveId: string; // footmercato's data-live-id exceeds Number.MAX_SAFE_INTEGER — keep as string
+  matchUrl: string | null; // detail page, only used to look up a penalty shootout score
   homeName: string;
   homeLogo: string | null;
   awayName: string;
@@ -99,7 +100,7 @@ function teamNameFromLogo(el: ReturnType<cheerio.CheerioAPI>): string {
   return alt.replace(/^Logo\s+/, '').trim();
 }
 
-export function parseMatchesFromHtml(html: string): RawMatch[] {
+export function parseMatchesFromHtml(html: string, pageUrl: string): RawMatch[] {
   const $ = cheerio.load(html);
   const rows: RawMatch[] = [];
 
@@ -127,9 +128,11 @@ export function parseMatchesFromHtml(html: string): RawMatch[] {
       const eventDate = timeAttr ?? (dayIso ? `${dayIso}T12:00:00Z` : null);
       const homeScoreText = homeTeamEl.find('.matchFull__score').first().text().trim();
       const awayScoreText = awayTeamEl.find('.matchFull__score').first().text().trim();
+      const href = match.find('a.matchFull__link').attr('href');
 
       rows.push({
         liveId,
+        matchUrl: href ? new URL(href, pageUrl).toString() : null,
         homeName,
         homeLogo: homeTeamEl.find('img.matchTeam__logo').attr('data-src') ?? null,
         awayName,
@@ -143,4 +146,28 @@ export function parseMatchesFromHtml(html: string): RawMatch[] {
   });
 
   return rows;
+}
+
+export interface PenaltyScore {
+  home: number;
+  away: number;
+}
+
+// The calendar listing never shows a shootout result (a 0-0 draw after
+// extra time looks identical to a 0-0 draw that never went to penalties),
+// so a knockout tie that finished level needs one extra request to its
+// detail page, where the "TAB" (tirs au but) period separator carries the
+// actual score, e.g. "4 - 2".
+export async function fetchPenaltyScore(matchUrl: string): Promise<PenaltyScore | null> {
+  const html = await fetchHtml(matchUrl);
+  const $ = cheerio.load(html);
+
+  let penalty: PenaltyScore | null = null;
+  $('.matchHighlights__periodSeparatorAcronym').each((_, el) => {
+    if ($(el).text().trim() !== 'TAB') return;
+    const scoreText = $(el).siblings('.matchHighlights__periodSeparatorScore').first().text().trim();
+    const score = scoreText.match(/(\d+)\s*-\s*(\d+)/);
+    if (score) penalty = { home: Number(score[1]), away: Number(score[2]) };
+  });
+  return penalty;
 }

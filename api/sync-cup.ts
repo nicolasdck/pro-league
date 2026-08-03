@@ -1,7 +1,14 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 import { D1_CLUB_ALIASES } from '../src/lib/d1ClubAliases.js';
-import { discoverPhaseLinks, fetchHtml, parseMatchesFromHtml, sleep, REQUEST_DELAY_MS } from '../src/lib/footmercatoScraper.js';
+import {
+  discoverPhaseLinks,
+  fetchHtml,
+  fetchPenaltyScore,
+  parseMatchesFromHtml,
+  sleep,
+  REQUEST_DELAY_MS,
+} from '../src/lib/footmercatoScraper.js';
 
 // Croky Cup (Belgian Cup) has no working free API (api-sports.io's free plan
 // blocks the current season for this competition, same as the league;
@@ -36,6 +43,8 @@ interface CupFixtureRow {
   away_team_logo: string | null;
   home_score: number | null;
   away_score: number | null;
+  home_penalty: number | null;
+  away_penalty: number | null;
   source_url: string;
   updated_at: string;
 }
@@ -71,10 +80,25 @@ async function syncCupFixtures(supabase: SupabaseClient): Promise<{ requestsUsed
     const html = await fetchHtml(link.url);
     requestsUsed += 1;
 
-    for (const match of parseMatchesFromHtml(html)) {
+    for (const match of parseMatchesFromHtml(html, link.url)) {
       const homeTeamId = D1_CLUB_ALIASES[match.homeName] ?? null;
       const awayTeamId = D1_CLUB_ALIASES[match.awayName] ?? null;
       if (homeTeamId === null && awayTeamId === null) continue; // no D1 club involved, skip
+
+      // A draw might have been settled on penalties (single-match knockout
+      // rounds) — the calendar listing never shows it, only the detail page
+      // does, so a tied result is worth the one extra request to check.
+      let homePenalty: number | null = null;
+      let awayPenalty: number | null = null;
+      if (match.isPlayed && match.homeScore === match.awayScore && match.matchUrl) {
+        await sleep(REQUEST_DELAY_MS);
+        const penalty = await fetchPenaltyScore(match.matchUrl);
+        requestsUsed += 1;
+        if (penalty) {
+          homePenalty = penalty.home;
+          awayPenalty = penalty.away;
+        }
+      }
 
       allRows.push({
         id: match.liveId,
@@ -89,6 +113,8 @@ async function syncCupFixtures(supabase: SupabaseClient): Promise<{ requestsUsed
         away_team_logo: match.awayLogo,
         home_score: match.homeScore,
         away_score: match.awayScore,
+        home_penalty: homePenalty,
+        away_penalty: awayPenalty,
         source_url: link.url,
         updated_at: now,
       });

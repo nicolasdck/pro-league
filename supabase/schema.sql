@@ -67,6 +67,8 @@ create table if not exists cup_fixtures (
   away_team_logo text,
   home_score integer,
   away_score integer,
+  home_penalty integer,                   -- set only when decided on penalties
+  away_penalty integer,
   source_url text not null,
   updated_at timestamptz not null default now()
 );
@@ -95,6 +97,8 @@ create table if not exists european_fixtures (
   away_team_logo text,
   home_score integer,
   away_score integer,
+  home_penalty integer,                   -- set only when decided on penalties
+  away_penalty integer,
   source_url text not null,
   updated_at timestamptz not null default now()
 );

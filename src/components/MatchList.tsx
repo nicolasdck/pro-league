@@ -22,6 +22,8 @@ export interface MatchListFixture {
   status: 'NS' | 'FT';
   homeScore: number | null;
   awayScore: number | null;
+  homePenalty: number | null;
+  awayPenalty: number | null;
   homeTeam: MatchOpponent;
   awayTeam: MatchOpponent;
 }
@@ -128,6 +130,11 @@ export function MatchList({
                     </div>
                     <OpponentRow opponent={fixture.awayTeam} align="right" />
                   </div>
+                  {isPlayed && fixture.homePenalty !== null && fixture.awayPenalty !== null && (
+                    <div className="mt-1 text-center text-xs text-neutral-500">
+                      {fixture.homePenalty} - {fixture.awayPenalty} tab
+                    </div>
+                  )}
                   {!isPlayed && broadcast && (
                     <a
                       href={broadcast.url}

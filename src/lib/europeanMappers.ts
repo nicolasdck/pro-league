@@ -10,6 +10,8 @@ export interface EuropeanFixtureRow {
   status: string;
   home_score: number | null;
   away_score: number | null;
+  home_penalty: number | null;
+  away_penalty: number | null;
   home_team_name: string;
   home_team_logo: string | null;
   home_team: TeamRow | null;
@@ -27,6 +29,8 @@ export function mapEuropeanFixture(row: EuropeanFixtureRow): EuropeanFixture {
     status: row.status === 'FT' ? 'FT' : 'NS',
     homeScore: row.home_score,
     awayScore: row.away_score,
+    homePenalty: row.home_penalty,
+    awayPenalty: row.away_penalty,
     homeTeam: mapOpponent(row.home_team, row.home_team_name, row.home_team_logo),
     awayTeam: mapOpponent(row.away_team, row.away_team_name, row.away_team_logo),
   };
