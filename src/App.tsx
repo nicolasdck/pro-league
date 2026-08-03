@@ -7,11 +7,13 @@ import { FixturesList } from './components/FixturesList';
 import { CupFixturesList } from './components/CupFixturesList';
 import { EuropePage } from './components/EuropePage';
 import { SeasonNav } from './components/SeasonNav';
+import { TeamAgenda } from './components/TeamAgenda';
+import { NewsList } from './components/NewsList';
 import { currentSeason } from './lib/season';
 
-type Tab = 'standings' | 'fixtures' | 'cup' | 'europe';
+type Tab = 'standings' | 'fixtures' | 'cup' | 'europe' | 'news';
 
-const VALID_TABS: Tab[] = ['standings', 'fixtures', 'cup', 'europe'];
+const VALID_TABS: Tab[] = ['standings', 'fixtures', 'cup', 'europe', 'news'];
 
 // Reads the `?tab=` param set by a PWA shortcut (see vite.config.ts) so a
 // long-press launch lands directly on that tab instead of always opening
@@ -39,13 +41,17 @@ function App() {
         <TabButton label="Calendrier" active={tab === 'fixtures'} onClick={() => setTab('fixtures')} />
         <TabButton label="Coupe" active={tab === 'cup'} onClick={() => setTab('cup')} />
         <TabButton label="Europe" active={tab === 'europe'} onClick={() => setTab('europe')} />
+        <TabButton label="Actus" active={tab === 'news'} onClick={() => setTab('news')} />
       </nav>
+
+      <TeamAgenda />
 
       <main className="mx-auto max-w-3xl p-4 pb-20">
         {tab === 'standings' && <StandingsTable season={season} />}
         {tab === 'fixtures' && <FixturesList season={season} />}
         {tab === 'cup' && <CupFixturesList />}
         {tab === 'europe' && <EuropePage />}
+        {tab === 'news' && <NewsList />}
       </main>
 
       <PWAInstallPrompt />

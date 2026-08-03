@@ -1,13 +1,17 @@
 import { useMemo } from 'react';
 import { useFixtures } from './useFixtures';
 import { useTeams } from './useTeams';
-import { computeStandings, buildStandingsFromOverride } from '../lib/standings';
+import { computeStandings, buildStandingsFromOverride, computeRecentForm, type FormResult } from '../lib/standings';
 import { HISTORICAL_STANDINGS_OVERRIDES } from '../lib/historicalStandingsOverrides';
 import { currentSeason } from '../lib/season';
 import type { Fixture, Standing, Team } from '../types';
 
 interface UseStandingsResult {
   data: Standing[] | undefined;
+  // Only populated for seasons computed straight from fixtures (no hand-entered
+  // override) — a fully completed historical season's "recent form" isn't
+  // meaningful, so it's left empty rather than reconstructed.
+  recentForm: Map<number, FormResult[]>;
   isLoading: boolean;
   isError: boolean;
 }
@@ -51,8 +55,18 @@ export function useStandings(season: number = currentSeason()): UseStandingsResu
     return standingsForSeason(season, teamsQuery.data, fixturesQuery.data, previousRanks);
   }, [teamsQuery.data, fixturesQuery.data, previousFixturesQuery.data, isCurrentSeason, season]);
 
+  const recentForm = useMemo<Map<number, FormResult[]>>(() => {
+    const map = new Map<number, FormResult[]>();
+    if (hasOverride || !data || !fixturesQuery.data) return map;
+    for (const standing of data) {
+      map.set(standing.teamId, computeRecentForm(fixturesQuery.data, standing.teamId));
+    }
+    return map;
+  }, [data, fixturesQuery.data, hasOverride]);
+
   return {
     data,
+    recentForm,
     isLoading:
       teamsQuery.isLoading ||
       (!hasOverride && fixturesQuery.isLoading) ||

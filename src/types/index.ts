@@ -92,3 +92,13 @@ export interface EuropeanFixture {
   homeTeam: MatchOpponent;
   awayTeam: MatchOpponent;
 }
+
+export interface NewsItem {
+  id: string;
+  title: string;
+  url: string;
+  imageUrl: string | null;
+  articleType: string;
+  publishedAt: string;
+  teamIds: number[];
+}

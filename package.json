@@ -11,6 +11,7 @@
     "sync:local": "tsx --env-file=.env.local scripts/sync-local.mjs",
     "sync-cup:local": "tsx --env-file=.env.local scripts/sync-cup-local.mjs",
     "sync-europe:local": "tsx --env-file=.env.local scripts/sync-europe-local.mjs",
+    "sync-news:local": "tsx --env-file=.env.local scripts/sync-news-local.mjs",
     "logos:localize": "node --env-file=.env.local scripts/localize-logos.mjs",
     "icon:generate": "node scripts/generate-app-icon.mjs"
   },

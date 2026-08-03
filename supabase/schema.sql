@@ -108,6 +108,24 @@ create table if not exists european_fixtures (
 create index if not exists european_fixtures_competition_date_idx on european_fixtures (competition, event_date);
 
 -- ---------------------------------------------------------------------------
+-- news_items — transfer/news aggregated from footmercato's per-club news API
+-- across the 18 D1 clubs (see src/lib/footmercatoClubSlugs.ts, api/sync-news.ts).
+-- ---------------------------------------------------------------------------
+create table if not exists news_items (
+  id text primary key,                    -- footmercato article id
+  slug text not null,
+  title text not null,
+  url text not null,
+  image_url text,
+  article_type text not null,             -- 'flash' | 'center' | ...
+  published_at timestamptz not null,
+  team_ids integer[] not null,
+  updated_at timestamptz not null default now()
+);
+
+create index if not exists news_items_published_at_idx on news_items (published_at desc);
+
+-- ---------------------------------------------------------------------------
 -- sync_logs — records each sync run for observability (requests used, success)
 -- ---------------------------------------------------------------------------
 create table if not exists sync_logs (
@@ -139,6 +157,7 @@ alter table teams enable row level security;
 alter table fixtures enable row level security;
 alter table cup_fixtures enable row level security;
 alter table european_fixtures enable row level security;
+alter table news_items enable row level security;
 alter table sync_logs enable row level security;
 alter table user_preferences enable row level security;
 
@@ -149,6 +168,7 @@ create policy "public read teams" on teams for select using (true);
 create policy "public read fixtures" on fixtures for select using (true);
 create policy "public read cup_fixtures" on cup_fixtures for select using (true);
 create policy "public read european_fixtures" on european_fixtures for select using (true);
+create policy "public read news_items" on news_items for select using (true);
 
 -- sync_logs is operational data, not needed by the client.
 create policy "service role only sync_logs" on sync_logs for all using (false);

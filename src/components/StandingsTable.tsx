@@ -1,6 +1,29 @@
 import { useStandings } from '../hooks/useStandings';
 import { useTeamTheme } from '../hooks/useTeamTheme';
+import type { FormResult } from '../lib/standings';
 import type { EuropeanCompetition } from '../types';
+
+const FORM_STYLE: Record<FormResult, string> = {
+  W: 'bg-emerald-500 text-white',
+  D: 'bg-neutral-400 text-white',
+  L: 'bg-red-500 text-white',
+};
+
+function FormBadges({ form }: { form: FormResult[] | undefined }) {
+  if (!form || form.length === 0) return <span className="text-neutral-400">—</span>;
+  return (
+    <div className="flex justify-center gap-0.5">
+      {form.map((result, index) => (
+        <span
+          key={index}
+          className={`flex h-4 w-4 items-center justify-center rounded-[3px] text-[9px] font-bold ${FORM_STYLE[result]}`}
+        >
+          {result}
+        </span>
+      ))}
+    </div>
+  );
+}
 
 const EUROPEAN_COMPETITION_LABELS: Record<EuropeanCompetition, string> = {
   CL: 'Ligue des Champions',
@@ -26,7 +49,7 @@ const RELEGATION_ZONE_SIZE = 2;
 const ZONE_RULES_FIRST_SEASON = 2026;
 
 export function StandingsTable({ season }: { season?: number } = {}) {
-  const { data: standings, isLoading, isError } = useStandings(season);
+  const { data: standings, recentForm, isLoading, isError } = useStandings(season);
   const { favoriteTeamId } = useTeamTheme();
 
   if (isLoading) {
@@ -62,6 +85,7 @@ export function StandingsTable({ season }: { season?: number } = {}) {
               <th className="px-2 py-2 text-center">BC</th>
               <th className="px-2 py-2 text-center">Diff</th>
               <th className="px-3 py-2 text-center">Pts</th>
+              <th className="px-2 py-2 text-center">Forme</th>
             </tr>
           </thead>
           <tbody>
@@ -106,6 +130,9 @@ export function StandingsTable({ season }: { season?: number } = {}) {
                   <td className="px-2 py-2 text-center">{standing.goalsAgainst}</td>
                   <td className="px-2 py-2 text-center">{standing.goalsFor - standing.goalsAgainst}</td>
                   <td className="px-3 py-2 text-center">{standing.points}</td>
+                  <td className="px-2 py-2 text-center">
+                    <FormBadges form={recentForm.get(standing.teamId)} />
+                  </td>
                 </tr>
               );
             })}

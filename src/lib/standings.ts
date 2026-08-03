@@ -111,6 +111,37 @@ export function computeStandings(
   }));
 }
 
+export type FormResult = 'W' | 'D' | 'L';
+
+/**
+ * Last `limit` played results for a team, oldest first (so it reads
+ * left-to-right as a timeline) — computed straight from fixtures rather
+ * than tallied standings, since it needs per-match outcomes rather than
+ * season totals.
+ */
+export function computeRecentForm(fixtures: Fixture[], teamId: number, limit = 5): FormResult[] {
+  const played = fixtures
+    .filter(
+      (fixture) =>
+        (fixture.homeTeam.id === teamId || fixture.awayTeam.id === teamId) &&
+        fixture.homeScore !== null &&
+        fixture.awayScore !== null,
+    )
+    .sort((a, b) => b.eventDate.localeCompare(a.eventDate))
+    .slice(0, limit);
+
+  return played
+    .map((fixture): FormResult => {
+      const isHome = fixture.homeTeam.id === teamId;
+      const goalsFor = (isHome ? fixture.homeScore : fixture.awayScore)!;
+      const goalsAgainst = (isHome ? fixture.awayScore : fixture.homeScore)!;
+      if (goalsFor > goalsAgainst) return 'W';
+      if (goalsFor < goalsAgainst) return 'L';
+      return 'D';
+    })
+    .reverse();
+}
+
 /**
  * Builds a Standing[] from hand-entered official results (see
  * historicalStandingsOverrides.ts), for seasons where the playoff points
