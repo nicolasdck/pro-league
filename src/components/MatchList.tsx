@@ -127,7 +127,7 @@ export function MatchList({
   );
 }
 
-function OpponentRow({ opponent, align }: { opponent: MatchOpponent; align: 'left' | 'right' }) {
+export function OpponentRow({ opponent, align }: { opponent: MatchOpponent; align: 'left' | 'right' }) {
   return (
     <div className={`flex min-w-0 flex-1 items-center gap-2 ${align === 'right' ? 'flex-row-reverse text-right' : ''}`}>
       {opponent.isD1 && opponent.logo && (

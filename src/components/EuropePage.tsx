@@ -1,7 +1,8 @@
 import { useState } from 'react';
-import { useEuropeanFixtures } from '../hooks/useEuropeanFixtures';
+import { useEuropeanFixtures, useAllEuropeanFixtures } from '../hooks/useEuropeanFixtures';
 import { useTeamTheme } from '../hooks/useTeamTheme';
 import { MatchList } from './MatchList';
+import { EuropeHistory } from './EuropeHistory';
 import type { EuropeanCompetition } from '../types';
 
 const COMPETITIONS: Array<{ code: EuropeanCompetition; label: string; emptyMessage: string }> = [
@@ -22,14 +23,15 @@ const COMPETITIONS: Array<{ code: EuropeanCompetition; label: string; emptyMessa
   },
 ];
 
+type View = 'calendar' | 'history';
+
 export function EuropePage() {
   const [competition, setCompetition] = useState<EuropeanCompetition>('CL');
-  const active = COMPETITIONS.find((c) => c.code === competition)!;
-  const { data: fixtures, isLoading, isError } = useEuropeanFixtures(competition);
+  const [view, setView] = useState<View>('calendar');
   const { favoriteTeamId } = useTeamTheme();
 
   return (
-    <div className="flex flex-col gap-4">
+    <div className="flex flex-col gap-3">
       <div className="flex gap-1 rounded-full bg-neutral-100 p-1 dark:bg-neutral-800">
         {COMPETITIONS.map((c) => (
           <button
@@ -47,15 +49,67 @@ export function EuropePage() {
         ))}
       </div>
 
-      {isLoading && <div className="p-4 text-center text-sm text-neutral-500">Chargement…</div>}
+      <div className="flex gap-1 rounded-full bg-neutral-100 p-1 text-xs dark:bg-neutral-800">
+        <button
+          type="button"
+          onClick={() => setView('calendar')}
+          className={
+            view === 'calendar'
+              ? 'flex-1 rounded-full bg-white px-2 py-1 font-semibold text-team-primary shadow-sm dark:bg-neutral-900'
+              : 'flex-1 rounded-full px-2 py-1 font-medium text-neutral-500'
+          }
+        >
+          Calendrier
+        </button>
+        <button
+          type="button"
+          onClick={() => setView('history')}
+          className={
+            view === 'history'
+              ? 'flex-1 rounded-full bg-white px-2 py-1 font-semibold text-team-primary shadow-sm dark:bg-neutral-900'
+              : 'flex-1 rounded-full px-2 py-1 font-medium text-neutral-500'
+          }
+        >
+          Historique (tous clubs belges)
+        </button>
+      </div>
 
-      {isError && (
-        <div className="p-4 text-center text-sm text-red-600">Impossible de charger cette compétition pour le moment.</div>
-      )}
-
-      {!isLoading && !isError && fixtures && (
-        <MatchList fixtures={fixtures} favoriteTeamId={favoriteTeamId} emptyMessage={active.emptyMessage} />
+      {view === 'history' ? (
+        <EuropeHistorySection favoriteTeamId={favoriteTeamId} />
+      ) : (
+        <CompetitionSection competition={competition} favoriteTeamId={favoriteTeamId} />
       )}
     </div>
   );
+}
+
+function CompetitionSection({
+  competition,
+  favoriteTeamId,
+}: {
+  competition: EuropeanCompetition;
+  favoriteTeamId: number | null;
+}) {
+  const active = COMPETITIONS.find((c) => c.code === competition)!;
+  const { data: fixtures, isLoading, isError } = useEuropeanFixtures(competition);
+
+  if (isLoading) return <div className="p-4 text-center text-sm text-neutral-500">Chargement…</div>;
+  if (isError) {
+    return (
+      <div className="p-4 text-center text-sm text-red-600">Impossible de charger cette compétition pour le moment.</div>
+    );
+  }
+  return <MatchList fixtures={fixtures ?? []} favoriteTeamId={favoriteTeamId} emptyMessage={active.emptyMessage} />;
+}
+
+function EuropeHistorySection({ favoriteTeamId }: { favoriteTeamId: number | null }) {
+  const { data: fixtures, isLoading, isError } = useAllEuropeanFixtures();
+
+  if (isLoading) return <div className="p-4 text-center text-sm text-neutral-500">Chargement…</div>;
+  if (isError) {
+    return (
+      <div className="p-4 text-center text-sm text-red-600">Impossible de charger l'historique pour le moment.</div>
+    );
+  }
+  return <EuropeHistory fixtures={fixtures ?? []} favoriteTeamId={favoriteTeamId} />;
 }

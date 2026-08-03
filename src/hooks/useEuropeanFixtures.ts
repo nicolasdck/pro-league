@@ -23,3 +23,23 @@ export function useEuropeanFixtures(competition: EuropeanCompetition) {
     staleTime: 1000 * 60 * 5,
   });
 }
+
+async function fetchAllEuropeanFixtures(): Promise<EuropeanFixture[]> {
+  const { data, error } = await supabase
+    .from('european_fixtures')
+    .select(
+      '*, home_team:teams!european_fixtures_home_team_id_fkey(*), away_team:teams!european_fixtures_away_team_id_fkey(*)',
+    )
+    .order('event_date', { ascending: false, nullsFirst: false });
+
+  if (error) throw error;
+  return (data as EuropeanFixtureRow[]).map(mapEuropeanFixture);
+}
+
+export function useAllEuropeanFixtures() {
+  return useQuery({
+    queryKey: ['european-fixtures', 'all'],
+    queryFn: fetchAllEuropeanFixtures,
+    staleTime: 1000 * 60 * 5,
+  });
+}
