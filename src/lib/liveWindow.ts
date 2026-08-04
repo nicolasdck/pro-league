@@ -1,4 +1,4 @@
-import { isFinishedFixtureStatus, isLiveFixtureStatus, type FixtureStatus } from '../types';
+import { isFinishedFixtureStatus, isLiveFixtureStatus, type FixtureStatus } from '../types/index.js';
 
 // Shared by useLiveScorePolling.ts (league) and useLiveScorePollingEuro.ts
 // (Cup/CL/EL/ECL) — a match can kick off a few minutes late and regularly
