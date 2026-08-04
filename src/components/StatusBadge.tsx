@@ -1,7 +1,5 @@
-import type { FixtureStatus } from '../types';
+import { FINISHED_FIXTURE_STATUSES, LIVE_FIXTURE_STATUSES, type FixtureStatus } from '../types';
 
-const LIVE_STATUSES: FixtureStatus[] = ['1H', 'HT', '2H', 'ET', 'P'];
-const FINISHED_STATUSES: FixtureStatus[] = ['FT', 'AET', 'PEN'];
 const DISRUPTED_STATUSES: FixtureStatus[] = ['PST', 'CANC', 'ABD', 'AWD', 'WO'];
 
 const LABELS: Partial<Record<FixtureStatus, string>> = {
@@ -14,7 +12,7 @@ const LABELS: Partial<Record<FixtureStatus, string>> = {
 };
 
 export function StatusBadge({ status }: { status: FixtureStatus }) {
-  if (LIVE_STATUSES.includes(status)) {
+  if (LIVE_FIXTURE_STATUSES.includes(status)) {
     return (
       <span className="inline-flex items-center gap-1.5 rounded-full bg-red-100 px-2.5 py-0.5 text-xs font-semibold text-red-700 dark:bg-red-500/15 dark:text-red-400">
         <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-red-600 dark:bg-red-400" />
@@ -23,7 +21,7 @@ export function StatusBadge({ status }: { status: FixtureStatus }) {
     );
   }
 
-  if (FINISHED_STATUSES.includes(status)) {
+  if (FINISHED_FIXTURE_STATUSES.includes(status)) {
     return (
       <span className="inline-flex items-center rounded-full bg-neutral-200 px-2.5 py-0.5 text-xs font-semibold text-neutral-700 dark:bg-neutral-700 dark:text-neutral-200">
         Terminé

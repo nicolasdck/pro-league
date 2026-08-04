@@ -1,4 +1,4 @@
-import type { Fixture, Standing, Team } from '../types';
+import { isFinishedFixtureStatus, type Fixture, type Standing, type Team } from '../types';
 import { getEuropeanCompetition } from './europeanQualification';
 import type { StandingOverrideRow } from './historicalStandingsOverrides';
 
@@ -33,7 +33,7 @@ function tallyFixtures(fixtures: Fixture[]): Map<number, TeamTotals> {
   for (const fixture of fixtures) {
     const home = ensure(fixture.homeTeam);
     const away = ensure(fixture.awayTeam);
-    if (fixture.homeScore === null || fixture.awayScore === null) continue;
+    if (!isFinishedFixtureStatus(fixture.status) || fixture.homeScore === null || fixture.awayScore === null) continue;
 
     home.played += 1;
     away.played += 1;
@@ -124,6 +124,7 @@ export function computeRecentForm(fixtures: Fixture[], teamId: number, limit = 5
     .filter(
       (fixture) =>
         (fixture.homeTeam.id === teamId || fixture.awayTeam.id === teamId) &&
+        isFinishedFixtureStatus(fixture.status) &&
         fixture.homeScore !== null &&
         fixture.awayScore !== null,
     )

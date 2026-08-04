@@ -1,4 +1,4 @@
-import type { EuropeanCompetition, EuropeanFixture } from '../types';
+import type { EuropeanCompetition, EuropeanFixture, FixtureStatus } from '../types';
 import { mapOpponent } from './cupMappers';
 import type { TeamRow } from './mappers';
 
@@ -27,7 +27,7 @@ export function mapEuropeanFixture(row: EuropeanFixtureRow): EuropeanFixture {
     competition: row.competition as EuropeanCompetition,
     phase: row.phase,
     eventDate: row.event_date,
-    status: row.status === 'FT' ? 'FT' : 'NS',
+    status: row.status as FixtureStatus,
     homeScore: row.home_score,
     awayScore: row.away_score,
     homePenalty: row.home_penalty,

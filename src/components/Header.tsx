@@ -1,12 +1,14 @@
-import { Newspaper } from 'lucide-react';
+import { Bell, Newspaper } from 'lucide-react';
 import { TeamSelector } from './TeamSelector';
 
 export function Header({
 	isNewsActive,
 	onNewsClick,
+	onOpenNotifications,
 }: {
 	isNewsActive: boolean;
 	onNewsClick: () => void;
+	onOpenNotifications: () => void;
 }) {
 	return (
 		<header className="flex items-center justify-between bg-team-secondary p-2 text-team-secondary-fg shadow-sm">
@@ -28,7 +30,17 @@ export function Header({
 					Actus
 				</button>
 			</div>
-			<TeamSelector />
+			<div className="flex items-center gap-2">
+				<button
+					type="button"
+					onClick={onOpenNotifications}
+					aria-label="Notifications de buts"
+					className="rounded-lg bg-team-secondary/10 p-2 text-team-secondary-fg"
+				>
+					<Bell className="h-4 w-4" />
+				</button>
+				<TeamSelector />
+			</div>
 		</header>
 	);
 }

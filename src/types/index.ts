@@ -23,9 +23,11 @@ export interface Standing {
   europeanCompetition?: EuropeanCompetition;
 }
 
-// Short match-status codes as returned by TheSportsDB (NS, FT, PST are confirmed
-// on the free tier; the live in-play codes only apply if a premium livescore
-// plan is added later).
+// Short match-status codes as returned by TheSportsDB. The live in-play
+// codes (1H/HT/2H/ET/P) ARE available on the free tier too, just not from
+// the season/round endpoints api/sync.ts uses for the daily sync — they
+// come from livescore.php instead (see api/live-scores.ts), polled by the
+// client while a match is in its live window (src/hooks/useLiveScorePolling.ts).
 export type FixtureStatus =
   | 'NS' // Not Started
   | '1H'
@@ -41,6 +43,28 @@ export type FixtureStatus =
   | 'ABD'
   | 'AWD'
   | 'WO';
+
+// A result should only count toward standings/form once the match has
+// actually finished — a live score (e.g. 1-0 at half-time) must not be
+// tallied as a completed result. Shared by standings.ts and StatusBadge.tsx.
+export const FINISHED_FIXTURE_STATUSES: readonly FixtureStatus[] = ['FT', 'AET', 'PEN'];
+
+export function isFinishedFixtureStatus(status: FixtureStatus): boolean {
+  return FINISHED_FIXTURE_STATUSES.includes(status);
+}
+
+export const LIVE_FIXTURE_STATUSES: readonly FixtureStatus[] = ['1H', 'HT', '2H', 'ET', 'P'];
+
+export function isLiveFixtureStatus(status: FixtureStatus): boolean {
+  return LIVE_FIXTURE_STATUSES.includes(status);
+}
+
+// For display purposes only ("show the score, not the kickoff time") — a
+// live match has a real score just as a finished one does, unlike
+// isFinishedFixtureStatus which gates whether it counts toward standings.
+export function hasFixtureScore(status: FixtureStatus): boolean {
+  return isFinishedFixtureStatus(status) || isLiveFixtureStatus(status);
+}
 
 export interface Fixture {
   id: number;
@@ -68,7 +92,12 @@ export interface CupFixture {
   id: string; // footmercato id exceeds Number.MAX_SAFE_INTEGER
   phase: string;
   eventDate: string | null; // null until footmercato schedules the match
-  status: Extract<FixtureStatus, 'NS' | 'FT'>;
+  // Normally 'NS' | 'FT'; can also be '1H' while api/live-scores-euro.ts is
+  // actively polling it (see useLiveScorePollingEuro) — footmercato's
+  // markup doesn't reliably expose which half/phase, so '1H' is used purely
+  // as a generic "kicked off, not finished yet" marker, not a literal claim
+  // about the first half. StatusBadge already renders it as plain "En cours".
+  status: FixtureStatus;
   homeScore: number | null;
   awayScore: number | null;
   homePenalty: number | null; // set only when the tie was decided on penalties
@@ -83,7 +112,8 @@ export interface EuropeanFixture {
   competition: EuropeanCompetition;
   phase: string;
   eventDate: string | null;
-  status: Extract<FixtureStatus, 'NS' | 'FT'>;
+  // See CupFixture.status — same 'NS' | '1H' | 'FT' semantics.
+  status: FixtureStatus;
   homeScore: number | null;
   awayScore: number | null;
   homePenalty: number | null; // set only when the tie was decided on penalties

@@ -126,6 +126,50 @@ create table if not exists news_items (
 create index if not exists news_items_published_at_idx on news_items (published_at desc);
 
 -- ---------------------------------------------------------------------------
+-- player_stats — top scorers/assists, scraped from footmercato's ranking
+-- pages (see src/lib/footmercatoStatsScraper.ts, api/sync-player-stats.ts).
+-- Wiped and fully reinserted per `kind` on every sync (ranks shuffle each
+-- matchday), so `id` only needs to be unique per sync run.
+-- ---------------------------------------------------------------------------
+create table if not exists player_stats (
+  id text primary key,            -- `${kind}:${playerSlug}`
+  kind text not null,             -- 'goals' | 'assists'
+  rank integer not null,
+  player_name text not null,
+  player_slug text not null,
+  player_image text,
+  team_id integer references teams(id),
+  team_name text not null,
+  position text,
+  value integer not null,         -- goal or assist count
+  updated_at timestamptz not null default now()
+);
+
+create index if not exists player_stats_kind_rank_idx on player_stats (kind, rank);
+
+-- ---------------------------------------------------------------------------
+-- push_subscriptions — Web Push subscriptions for goal notifications. One
+-- row per browser/device, each with its own per-competition preference
+-- ('none' | 'all' | 'favorite') — see api/push-subscribe.ts,
+-- src/lib/goalNotify.ts. No auth model in this app, so subscriptions aren't
+-- tied to a user account; writes only ever happen through
+-- api/push-subscribe.ts (service role), never directly from the client.
+-- ---------------------------------------------------------------------------
+create table if not exists push_subscriptions (
+  endpoint text primary key,
+  p256dh text not null,
+  auth text not null,
+  favorite_team_id integer references teams(id) on delete set null,
+  pref_league text not null default 'none' check (pref_league in ('none', 'all', 'favorite')),
+  pref_cup text not null default 'none' check (pref_cup in ('none', 'all', 'favorite')),
+  pref_cl text not null default 'none' check (pref_cl in ('none', 'all', 'favorite')),
+  pref_el text not null default 'none' check (pref_el in ('none', 'all', 'favorite')),
+  pref_ecl text not null default 'none' check (pref_ecl in ('none', 'all', 'favorite')),
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+-- ---------------------------------------------------------------------------
 -- sync_logs — records each sync run for observability (requests used, success)
 -- ---------------------------------------------------------------------------
 create table if not exists sync_logs (
@@ -158,6 +202,8 @@ alter table fixtures enable row level security;
 alter table cup_fixtures enable row level security;
 alter table european_fixtures enable row level security;
 alter table news_items enable row level security;
+alter table player_stats enable row level security;
+alter table push_subscriptions enable row level security;
 alter table sync_logs enable row level security;
 alter table user_preferences enable row level security;
 
@@ -169,9 +215,13 @@ create policy "public read fixtures" on fixtures for select using (true);
 create policy "public read cup_fixtures" on cup_fixtures for select using (true);
 create policy "public read european_fixtures" on european_fixtures for select using (true);
 create policy "public read news_items" on news_items for select using (true);
+create policy "public read player_stats" on player_stats for select using (true);
 
--- sync_logs is operational data, not needed by the client.
+-- sync_logs and push_subscriptions are operational data, not needed by the
+-- client (subscriptions are written through api/push-subscribe.ts, using
+-- the service role key, which bypasses RLS entirely).
 create policy "service role only sync_logs" on sync_logs for all using (false);
+create policy "service role only push_subscriptions" on push_subscriptions for all using (false);
 
 -- user_preferences: authenticated users may only read/write their own row.
 create policy "read own preferences" on user_preferences

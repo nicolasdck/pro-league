@@ -11,6 +11,9 @@ import { SeasonNav } from './components/SeasonNav';
 import { TeamAgenda } from './components/TeamAgenda';
 import { NewsList } from './components/NewsList';
 import { TopPerformers } from './components/TopPerformers';
+import { NotificationSettingsModal } from './components/NotificationSettingsModal';
+import { useLiveScorePolling } from './hooks/useLiveScorePolling';
+import { useLiveScorePollingEuro } from './hooks/useLiveScorePollingEuro';
 import { currentSeason } from './lib/season';
 
 type Tab = 'standings' | 'fixtures' | 'cup' | 'europe' | 'news';
@@ -27,6 +30,9 @@ function initialTabFromUrl(): Tab {
 
 function App() {
   const [tab, setTab] = useState<Tab>(initialTabFromUrl);
+  const [showNotifications, setShowNotifications] = useState(false);
+  useLiveScorePolling();
+  useLiveScorePollingEuro();
 
   useEffect(() => {
     if (window.location.search) window.history.replaceState(null, '', window.location.pathname);
@@ -35,7 +41,11 @@ function App() {
 
   return (
     <div className="min-h-screen bg-neutral-50 dark:bg-neutral-900 dark:text-neutral-100">
-      <Header isNewsActive={tab === 'news'} onNewsClick={() => setTab('news')} />
+      <Header
+        isNewsActive={tab === 'news'}
+        onNewsClick={() => setTab('news')}
+        onOpenNotifications={() => setShowNotifications(true)}
+      />
       <OfflineBanner />
 
       <nav className="flex border-b border-neutral-200 bg-white dark:border-neutral-800 dark:bg-neutral-900">
@@ -62,6 +72,7 @@ function App() {
 
       <PWAInstallPrompt />
       <UpdatePrompt />
+      <NotificationSettingsModal open={showNotifications} onClose={() => setShowNotifications(false)} />
       <SeasonNav selectedSeason={season} onSelect={setSeason} />
     </div>
   );

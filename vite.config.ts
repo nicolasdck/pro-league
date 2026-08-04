@@ -14,6 +14,14 @@ export default defineConfig({
 			// "Rafraîchir" instead of silently reloading the page under them.
 			registerType: 'prompt',
 			injectRegister: null,
+			// 'injectManifest' (not the default 'generateSW') because the service
+			// worker needs a `push` / `notificationclick` handler for goal
+			// notifications — see src/sw.ts, which also reproduces the
+			// precache + Supabase runtime-cache behaviour generateSW used to
+			// provide automatically.
+			strategies: 'injectManifest',
+			srcDir: 'src',
+			filename: 'sw.ts',
 			includeAssets: ['favicon.svg', 'apple-touch-icon.png'],
 			manifest: {
 				name: 'Pro League',
@@ -60,23 +68,10 @@ export default defineConfig({
 					},
 				],
 			},
-			workbox: {
+			injectManifest: {
 				// Default globPatterns don't cover public/ assets like the team
 				// badges, which we self-host precisely so they work offline too.
 				globPatterns: ['**/*.{js,css,html,ico,png,svg,webp}'],
-				// Cache Supabase REST responses so the last synced data stays
-				// available offline, while still checking the network first.
-				runtimeCaching: [
-					{
-						urlPattern: ({ url }) => url.hostname.endsWith('.supabase.co'),
-						handler: 'StaleWhileRevalidate',
-						options: {
-							cacheName: 'supabase-data',
-							expiration: { maxEntries: 50, maxAgeSeconds: 60 * 60 * 24 },
-							cacheableResponse: { statuses: [0, 200] },
-						},
-					},
-				],
 			},
 		}),
 	],

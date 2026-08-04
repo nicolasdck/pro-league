@@ -172,6 +172,37 @@ export async function fetchPenaltyScore(matchUrl: string): Promise<PenaltyScore 
   return penalty;
 }
 
+export interface LiveMatchState {
+  isFinished: boolean;
+  homeScore: number | null;
+  awayScore: number | null;
+}
+
+// Polled every ~30s while a Cup/European match is in its live window (see
+// api/live-scores-euro.ts) — the same detail page already fetched once for
+// buteurs/cartons and penalty checks, just re-read while the match is still
+// going. footmercato doesn't reliably expose which half/phase a live match
+// is in, only the running score and a `.timeline--played` modifier class
+// once it's over, so that's the only distinction made here: still going
+// (score only) vs finished — see FixtureStatus in src/types for how the
+// caller turns that into a status string.
+export async function fetchLiveMatchState(matchUrl: string): Promise<LiveMatchState | null> {
+  const html = await fetchHtml(matchUrl);
+  const $ = cheerio.load(html);
+
+  const homeText = $('.scoreboard__scoreTeam--home').first().text().trim();
+  const awayText = $('.scoreboard__scoreTeam--away').first().text().trim();
+  if (!homeText || !awayText) return null;
+
+  const isFinished = $('.scoreboard__timeline .timeline').first().hasClass('timeline--played');
+
+  return {
+    isFinished,
+    homeScore: Number(homeText),
+    awayScore: Number(awayText),
+  };
+}
+
 export interface MatchEvent {
   minute: string; // e.g. "45+1'", "90'" — footmercato's own notation, not parsed into a number
   side: 'home' | 'away';

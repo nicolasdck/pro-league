@@ -1,4 +1,4 @@
-import type { MatchOpponent } from '../types';
+import { hasFixtureScore, type MatchOpponent } from '../types';
 import type { MatchListFixture } from './MatchList';
 
 const dayFormatter = new Intl.DateTimeFormat('fr-BE', { day: 'numeric', month: 'short' });
@@ -77,7 +77,7 @@ export function BracketView({
                   }
                 >
                   {sortedLegs.map((leg, index) => {
-                    const isPlayed = leg.status === 'FT';
+                    const showScore = hasFixtureScore(leg.status);
                     return (
                       <div
                         key={leg.id}
@@ -85,14 +85,14 @@ export function BracketView({
                           index > 0 ? 'mt-1.5 border-t border-neutral-100 pt-1.5 dark:border-neutral-800' : ''
                         }
                       >
-                        <TeamRow opponent={leg.homeTeam} score={leg.homeScore} isPlayed={isPlayed} />
-                        <TeamRow opponent={leg.awayTeam} score={leg.awayScore} isPlayed={isPlayed} />
-                        {isPlayed && leg.homePenalty !== null && leg.awayPenalty !== null && (
+                        <TeamRow opponent={leg.homeTeam} score={leg.homeScore} isPlayed={showScore} />
+                        <TeamRow opponent={leg.awayTeam} score={leg.awayScore} isPlayed={showScore} />
+                        {leg.status === 'FT' && leg.homePenalty !== null && leg.awayPenalty !== null && (
                           <div className="mt-0.5 text-center text-[10px] text-neutral-500">
                             {leg.homePenalty}-{leg.awayPenalty} tab
                           </div>
                         )}
-                        {!isPlayed && leg.eventDate && (
+                        {!showScore && leg.eventDate && (
                           <div className="mt-0.5 text-center text-[10px] text-neutral-500">
                             {dayFormatter.format(new Date(leg.eventDate))}
                           </div>

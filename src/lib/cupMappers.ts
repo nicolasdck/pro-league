@@ -1,4 +1,4 @@
-import type { CupFixture, MatchOpponent } from '../types';
+import type { CupFixture, FixtureStatus, MatchOpponent } from '../types';
 import { mapTeam, type TeamRow } from './mappers';
 
 export interface CupFixtureRow {
@@ -39,7 +39,7 @@ export function mapCupFixture(row: CupFixtureRow): CupFixture {
     id: row.id,
     phase: row.phase,
     eventDate: row.event_date,
-    status: row.status === 'FT' ? 'FT' : 'NS',
+    status: row.status as FixtureStatus,
     homeScore: row.home_score,
     awayScore: row.away_score,
     homePenalty: row.home_penalty,

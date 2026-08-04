@@ -2,16 +2,13 @@ import { useState } from 'react';
 import { ChevronDown, ChevronUp } from 'lucide-react';
 import { useTeamTheme } from '../hooks/useTeamTheme';
 import { useTeamFixtures, COMPETITION_LABELS, type UnifiedFixture } from '../hooks/useTeamFixtures';
+import { hasFixtureScore, isFinishedFixtureStatus, isLiveFixtureStatus } from '../types';
 
 const dateFormatter = new Intl.DateTimeFormat('fr-BE', { weekday: 'short', day: 'numeric', month: 'short' });
 const timeFormatter = new Intl.DateTimeFormat('fr-BE', { hour: '2-digit', minute: '2-digit' });
 
-function isPlayed(fixture: UnifiedFixture): boolean {
-  return fixture.status === 'FT' || fixture.status === 'AET' || fixture.status === 'PEN';
-}
-
 function FixtureRow({ fixture }: { fixture: UnifiedFixture }) {
-  const played = isPlayed(fixture);
+  const played = hasFixtureScore(fixture.status);
 
   return (
     <div className="flex items-center justify-between gap-2 py-1.5 text-xs">
@@ -43,7 +40,12 @@ export function TeamAgenda() {
   if (isLoading || !fixtures) return null;
 
   const now = Date.now();
-  const nextMatch = fixtures.find((f) => !isPlayed(f) && (!f.eventDate || new Date(f.eventDate).getTime() >= now));
+  const nextMatch = fixtures.find(
+    (f) =>
+      !isFinishedFixtureStatus(f.status) &&
+      (isLiveFixtureStatus(f.status) || !f.eventDate || new Date(f.eventDate).getTime() >= now),
+  );
+  const nextMatchIsLive = nextMatch ? isLiveFixtureStatus(nextMatch.status) : false;
 
   return (
     <div className="border-b border-neutral-200 bg-white px-4 py-2 dark:border-neutral-800 dark:bg-neutral-900">
@@ -53,11 +55,23 @@ export function TeamAgenda() {
         className="flex w-full items-center justify-between gap-2 text-left"
       >
         <div className="flex min-w-0 flex-1 items-center gap-2 text-xs">
-          <span className="shrink-0 font-semibold text-team-primary">Prochain match</span>
+          <span className="shrink-0 font-semibold text-team-primary">
+            {nextMatchIsLive ? (
+              <span className="flex items-center gap-1">
+                <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-red-600" />
+                En direct
+              </span>
+            ) : (
+              'Prochain match'
+            )}
+          </span>
           {nextMatch ? (
             <span className="truncate text-neutral-600 dark:text-neutral-300">
-              {COMPETITION_LABELS[nextMatch.competitionKind]} · {nextMatch.homeName} vs {nextMatch.awayName}
-              {nextMatch.eventDate &&
+              {COMPETITION_LABELS[nextMatch.competitionKind]} · {nextMatch.homeName}
+              {hasFixtureScore(nextMatch.status) ? ` ${nextMatch.homeScore}-${nextMatch.awayScore} ` : ' vs '}
+              {nextMatch.awayName}
+              {!nextMatchIsLive &&
+                nextMatch.eventDate &&
                 ` · ${dateFormatter.format(new Date(nextMatch.eventDate))} ${timeFormatter.format(new Date(nextMatch.eventDate))}`}
             </span>
           ) : (

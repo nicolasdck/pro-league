@@ -2,7 +2,7 @@ import { useMemo, useState, type ReactNode } from 'react';
 import { ChevronLeft, ChevronRight, Tv } from 'lucide-react';
 import { StatusBadge } from './StatusBadge';
 import { MatchEventsPanel } from './MatchEventsPanel';
-import type { MatchOpponent } from '../types';
+import { hasFixtureScore, isLiveFixtureStatus, type FixtureStatus, type MatchOpponent } from '../types';
 
 // Free-to-air broadcast info for an upcoming match — applies to every NS
 // fixture in the list (broadcast rights are negotiated per-competition/
@@ -20,7 +20,7 @@ export interface MatchListFixture {
   id: string;
   phase: string;
   eventDate: string | null;
-  status: 'NS' | 'FT';
+  status: FixtureStatus;
   homeScore: number | null;
   awayScore: number | null;
   homePenalty: number | null;
@@ -48,7 +48,10 @@ function groupByDay(fixtures: MatchListFixture[]): Array<[string, MatchListFixtu
 
 function pickDefaultPhase(phases: string[], fixtures: MatchListFixture[]): string | undefined {
   const now = Date.now();
-  const upcoming = fixtures.find((fixture) => !fixture.eventDate || new Date(fixture.eventDate).getTime() >= now);
+  const upcoming = fixtures.find(
+    (fixture) =>
+      isLiveFixtureStatus(fixture.status) || !fixture.eventDate || new Date(fixture.eventDate).getTime() >= now,
+  );
   return upcoming?.phase ?? phases.at(-1);
 }
 
@@ -108,8 +111,9 @@ export function MatchList({
             {dayFixtures.map((fixture) => {
               const involvesFavorite =
                 fixture.homeTeam.id === favoriteTeamId || fixture.awayTeam.id === favoriteTeamId;
-              const isPlayed = fixture.status === 'FT';
-              const isExpandable = isPlayed && !!fixture.matchUrl;
+              const isFinished = fixture.status === 'FT';
+              const showScore = hasFixtureScore(fixture.status);
+              const isExpandable = isFinished && !!fixture.matchUrl;
               const isExpanded = isExpandable && expandedId === fixture.id;
 
               return (
@@ -130,7 +134,7 @@ export function MatchList({
                   <div className="flex items-center justify-between gap-2">
                     <OpponentRow opponent={fixture.homeTeam} align="left" />
                     <div className="w-16 shrink-0 text-center text-sm font-bold">
-                      {isPlayed
+                      {showScore
                         ? `${fixture.homeScore} - ${fixture.awayScore}`
                         : fixture.eventDate
                           ? timeFormatter.format(new Date(fixture.eventDate))
@@ -138,12 +142,12 @@ export function MatchList({
                     </div>
                     <OpponentRow opponent={fixture.awayTeam} align="right" />
                   </div>
-                  {isPlayed && fixture.homePenalty !== null && fixture.awayPenalty !== null && (
+                  {isFinished && fixture.homePenalty !== null && fixture.awayPenalty !== null && (
                     <div className="mt-1 text-center text-xs text-neutral-500">
                       {fixture.homePenalty} - {fixture.awayPenalty} tab
                     </div>
                   )}
-                  {!isPlayed && broadcast && (
+                  {fixture.status === 'NS' && broadcast && (
                     <a
                       href={broadcast.url}
                       target="_blank"

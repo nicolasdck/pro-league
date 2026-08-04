@@ -6,7 +6,8 @@
     "api/sync-el.ts": { "maxDuration": 60 },
     "api/sync-ecl.ts": { "maxDuration": 60 },
     "api/sync-news.ts": { "maxDuration": 30 },
-    "api/sync-player-stats.ts": { "maxDuration": 30 }
+    "api/sync-player-stats.ts": { "maxDuration": 30 },
+    "api/live-scores-euro.ts": { "maxDuration": 30 }
   },
   "crons": [
     { "path": "/api/sync", "schedule": "0 5 * * *" },
