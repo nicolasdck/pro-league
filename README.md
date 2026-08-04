@@ -101,7 +101,7 @@ scripts/sync-local.mjs             # Déclenche la synchro en local (hors Vercel
 scripts/sync-cup-local.mjs         # Déclenche la synchro Croky Cup en local
 scripts/sync-europe-local.mjs      # Déclenche une synchro européenne en local (cl|el|ecl)
 scripts/localize-logos.mjs         # Télécharge les logos en local, aucun lien externe
-scripts/generate-app-icon.mjs      # Génère les icônes PWA depuis pro-league-logo.jpg
+scripts/generate-app-icon.mjs      # Génère les icônes PWA depuis new-app-icon.png
 public/team-logos/                 # Logos des 18 clubs, servis en same-origin
 supabase/schema.sql                # Schéma Postgres + RLS
 supabase/seed.sql                  # Couleurs + logos locaux des 18 clubs actuels
@@ -119,10 +119,10 @@ vercel.json                        # Crons de synchronisation
 
 ## Icônes PWA
 
-L'onglet du navigateur garde `public/favicon.svg` (compatible Chrome/Edge). L'icône d'installation (manifest + écran d'accueil iOS) est générée depuis `public/pro-league-logo.jpg` :
+Toutes les icônes (onglet navigateur, manifest, écran d'accueil iOS) sont générées depuis `public/new-app-icon.png` :
 
 ```bash
 npm run icon:generate
 ```
 
-`scripts/generate-app-icon.mjs` (utilise `sharp`) compose le logo sur un canevas carré blanc (logo à ~90% de la taille, léger bord blanc) et produit `icon-192.png` / `icon-512.png` (référencés dans le manifest via `vite.config.ts`) et `apple-touch-icon.png` (180×180, référencé dans `index.html`). À relancer si `pro-league-logo.jpg` est remplacé.
+`scripts/generate-app-icon.mjs` (utilise `sharp`) redimensionne l'image source (déjà un icône carré plein cadre) et produit `favicon.png` (48×48, référencé dans `index.html`), `icon-192.png` / `icon-512.png` (référencés dans le manifest via `vite.config.ts`) et `apple-touch-icon.png` (180×180, référencé dans `index.html`). À relancer si `new-app-icon.png` est remplacée.

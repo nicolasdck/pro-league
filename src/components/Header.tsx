@@ -15,7 +15,7 @@ export function Header({
 			<div className="flex items-center gap-3">
 				<div className="flex items-center gap-2 font-bold">
 					<span className="text-3xl">⚽</span>
-					<span>Pro League</span>
+					<span className="leading-4">Pro League</span>
 				</div>
 				<button
 					type="button"
@@ -37,7 +37,7 @@ export function Header({
 					aria-label="Notifications de buts"
 					className="rounded-lg bg-team-secondary/10 p-2 text-team-secondary-fg"
 				>
-					<Bell className="h-4 w-4" />
+					<Bell className="h-6 w-6 bg-white/35 rounded-full p-1" />
 				</button>
 				<TeamSelector />
 			</div>

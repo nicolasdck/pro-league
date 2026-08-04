@@ -22,7 +22,7 @@ export default defineConfig({
 			strategies: 'injectManifest',
 			srcDir: 'src',
 			filename: 'sw.ts',
-			includeAssets: ['favicon.svg', 'apple-touch-icon.png'],
+			includeAssets: ['favicon.png', 'apple-touch-icon.png'],
 			manifest: {
 				name: 'Pro League',
 				short_name: 'Pro League',
@@ -72,6 +72,11 @@ export default defineConfig({
 				// Default globPatterns don't cover public/ assets like the team
 				// badges, which we self-host precisely so they work offline too.
 				globPatterns: ['**/*.{js,css,html,ico,png,svg,webp}'],
+				// Source image for scripts/generate-app-icon.mjs — lives in public/
+				// for convenience but is never linked to by the app, so it has no
+				// business being precached (and at 2.5MB it exceeds workbox's
+				// default per-file cache limit anyway).
+				globIgnores: ['new-app-icon.png'],
 			},
 		}),
 	],

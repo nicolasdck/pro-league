@@ -57,7 +57,7 @@ function App() {
 
       <TeamAgenda />
 
-      <main className="mx-auto max-w-3xl p-4 pb-20">
+      <main className={tab === 'standings' ? 'mx-auto max-w-3xl p-4 pb-20' : 'mx-auto max-w-3xl p-4'}>
         {tab === 'standings' && (
           <>
             <StandingsTable season={season} />
@@ -73,7 +73,7 @@ function App() {
       <PWAInstallPrompt />
       <UpdatePrompt />
       <NotificationSettingsModal open={showNotifications} onClose={() => setShowNotifications(false)} />
-      <SeasonNav selectedSeason={season} onSelect={setSeason} />
+      {tab === 'standings' && <SeasonNav selectedSeason={season} onSelect={setSeason} />}
     </div>
   );
 }
