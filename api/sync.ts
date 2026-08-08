@@ -22,6 +22,18 @@ const MIN_ROUNDS_BEFORE_STOP = 6;
 // documented 30 req/min, so this is intentionally conservative.
 const REQUEST_DELAY_MS = 1500;
 
+// vercel.json gives this function 90s (maxDuration). A round's 429 retries
+// (up to 4 attempts, 5s/10s/15s/20s backoff) can burn through that budget on
+// their own if TheSportsDB's WAF is banning this IP — and a Vercel timeout
+// kill is a hard SIGKILL, not a thrown error, so the handler's own catch
+// block (and its logSync call) never runs. That's how a run can go missing
+// from sync_logs entirely instead of showing up as a failure — confirmed
+// 2026-08-08: five straight days with zero "fixtures" rows, success or not,
+// while every other cron in this project kept logging normally. Stopping
+// early, before Vercel's own kill, guarantees at least one of those two
+// outcomes is always recorded.
+const MAX_DURATION_MS = 75_000;
+
 // The league table is computed client-side from these fixtures instead of
 // TheSportsDB's lookuptable.php, which caps results at 5 rows on the free
 // tier — even for a fully completed season (verified). There is nothing else
@@ -66,14 +78,21 @@ function getSupabaseAdmin(): SupabaseClient {
   return createClient(url, serviceRoleKey, { auth: { persistSession: false } });
 }
 
-async function sportsDbGet<T>(path: string, attempt = 1): Promise<T> {
+async function sportsDbGet<T>(path: string, deadline: number, attempt = 1): Promise<T> {
   const apiKey = process.env.THESPORTSDB_API_KEY;
   if (!apiKey) throw new Error('Missing THESPORTSDB_API_KEY environment variable');
 
   const response = await fetch(`${API_BASE}/${apiKey}${path}`);
   if (response.status === 429 && attempt <= 4) {
-    await sleep(5000 * attempt);
-    return sportsDbGet<T>(path, attempt + 1);
+    const backoff = 5000 * attempt;
+    // A retry that would land past the deadline anyway isn't worth starting —
+    // fail now so the caller can stop cleanly instead of Vercel killing the
+    // whole function mid-sleep (see MAX_DURATION_MS).
+    if (Date.now() + backoff >= deadline) {
+      throw new Error(`TheSportsDB request failed (429): giving up, retry would exceed the time budget`);
+    }
+    await sleep(backoff);
+    return sportsDbGet<T>(path, deadline, attempt + 1);
   }
   if (!response.ok) {
     throw new Error(`TheSportsDB request failed (${response.status}): ${await response.text()}`);
@@ -123,14 +142,24 @@ async function upsertTeams(supabase: SupabaseClient, teams: TeamUpsert[]): Promi
   }
 }
 
-async function fetchSeasonEvents(season: number): Promise<{ events: SportsDbEvent[]; requestsUsed: number }> {
+async function fetchSeasonEvents(
+  season: number,
+  deadline: number,
+): Promise<{ events: SportsDbEvent[]; requestsUsed: number; timedOut: boolean }> {
   const events: SportsDbEvent[] = [];
   let requestsUsed = 0;
   let consecutiveEmptyRounds = 0;
 
   for (let round = 1; round <= MAX_ROUNDS; round += 1) {
+    if (Date.now() >= deadline) {
+      // Whatever's in `events` so far still gets upserted below — a partial
+      // sync beats a silent no-op, and tomorrow's run picks up the rest.
+      return { events, requestsUsed, timedOut: true };
+    }
+
     const json = await sportsDbGet<{ events: SportsDbEvent[] | null }>(
       `/eventsround.php?id=${LEAGUE_ID}&r=${round}&s=${toSeasonRange(season)}`,
+      deadline,
     );
     requestsUsed += 1;
     const roundEvents = json.events ?? [];
@@ -148,7 +177,7 @@ async function fetchSeasonEvents(season: number): Promise<{ events: SportsDbEven
     if (round < MAX_ROUNDS) await sleep(REQUEST_DELAY_MS);
   }
 
-  return { events, requestsUsed };
+  return { events, requestsUsed, timedOut: false };
 }
 
 function mapEventStatus(event: SportsDbEvent): string {
@@ -156,8 +185,12 @@ function mapEventStatus(event: SportsDbEvent): string {
   return event.strStatus || 'NS';
 }
 
-async function syncFixtures(supabase: SupabaseClient, season: number): Promise<number> {
-  const { events, requestsUsed } = await fetchSeasonEvents(season);
+async function syncFixtures(
+  supabase: SupabaseClient,
+  season: number,
+  deadline: number,
+): Promise<{ requestsUsed: number; timedOut: boolean }> {
+  const { events, requestsUsed, timedOut } = await fetchSeasonEvents(season, deadline);
 
   const teams: TeamUpsert[] = events.flatMap((event) => [
     { id: Number(event.idHomeTeam), name: event.strHomeTeam, logo: event.strHomeTeamBadge },
@@ -183,7 +216,7 @@ async function syncFixtures(supabase: SupabaseClient, season: number): Promise<n
     if (error) throw error;
   }
 
-  return requestsUsed;
+  return { requestsUsed, timedOut };
 }
 
 export default async function handler(req: VercelRequest, res: VercelResponse): Promise<void> {
@@ -206,10 +239,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse): 
     return;
   }
 
+  const deadline = Date.now() + MAX_DURATION_MS;
+
   try {
-    const requestsUsed = await syncFixtures(supabase, season);
-    await logSync(supabase, requestsUsed, true);
-    res.status(200).json({ success: true, season, requestsUsed });
+    const { requestsUsed, timedOut } = await syncFixtures(supabase, season, deadline);
+    const message = timedOut ? 'Stopped early: time budget exceeded, partial sync saved' : undefined;
+    await logSync(supabase, requestsUsed, true, message);
+    res.status(200).json({ success: true, season, requestsUsed, timedOut });
   } catch (err) {
     const message = err instanceof Error ? err.message : 'Unknown error';
     await logSync(supabase, 0, false, message).catch(() => undefined);
