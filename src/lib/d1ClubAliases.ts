@@ -42,6 +42,7 @@ export const D1_CLUB_ALIASES: Record<string, number> = {
 	Westerlo: 133790,
 	ZW: 133786,
 	'Zulte Waregem': 133786,
+	'Zulte-Waregem': 133786,
 };
 
 export function matchD1TeamId(footmercatoName: string): number | null {

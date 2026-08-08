@@ -34,10 +34,10 @@ android {
         // exact same base URL the browser itself calls. No sensitive API
         // key lives in this app: api/live-scores.ts and
         // api/live-scores-euro.ts do all the fetching/scraping and hold the
-        // real credentials (TheSportsDB key, Supabase service role) server-
-        // side. This app's only job is to keep pinging those two public
-        // endpoints on a schedule, from a device that's actually reachable
-        // in the background — see README.md for why.
+        // real credentials (Supabase service role) server-side. This app's
+        // only job is to keep pinging those two public endpoints on a
+        // schedule, from a device that's actually reachable in the
+        // background — see README.md for why.
         buildConfigField("String", "BASE_URL", "\"https://pro-league-delta.vercel.app\"")
         buildConfigField("String", "SUPABASE_URL", "\"${secrets.getProperty("SUPABASE_URL", "")}\"")
         buildConfigField("String", "SUPABASE_ANON_KEY", "\"${secrets.getProperty("SUPABASE_ANON_KEY", "")}\"")

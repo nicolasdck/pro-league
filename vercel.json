@@ -1,16 +1,17 @@
 {
   "functions": {
-    "api/sync.ts": { "maxDuration": 90 },
+    "api/sync-d1.ts": { "maxDuration": 60 },
     "api/sync-cup.ts": { "maxDuration": 30 },
     "api/sync-cl.ts": { "maxDuration": 60 },
     "api/sync-el.ts": { "maxDuration": 60 },
     "api/sync-ecl.ts": { "maxDuration": 60 },
     "api/sync-news.ts": { "maxDuration": 30 },
     "api/sync-player-stats.ts": { "maxDuration": 30 },
+    "api/live-scores.ts": { "maxDuration": 30 },
     "api/live-scores-euro.ts": { "maxDuration": 30 }
   },
   "crons": [
-    { "path": "/api/sync", "schedule": "0 5 * * *" },
+    { "path": "/api/sync-d1", "schedule": "0 5 * * *" },
     { "path": "/api/sync-cup", "schedule": "0 6 * * *" },
     { "path": "/api/sync-cl", "schedule": "0 7 * * *" },
     { "path": "/api/sync-el", "schedule": "20 7 * * *" },

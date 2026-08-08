@@ -6,8 +6,7 @@ discussion dans le repo principal pour le contexte complet.
 
 Adaptée du pattern déjà utilisé dans `worldcup-2026/android-sync`, mais
 nettement plus simple : **aucune clé sensible embarquée dans cette app**
-(pas de clé TheSportsDB, pas de clé service_role Supabase). Elle fait deux
-choses en arrière-plan :
+(pas de clé service_role Supabase). Elle fait deux choses en arrière-plan :
 
 1. **Décider s'il faut synchroniser** : lit le calendrier public
    (`fixtures` / `cup_fixtures` / `european_fixtures`, lecture seule via la
@@ -16,15 +15,16 @@ choses en arrière-plan :
    — voir `sync/ScheduleChecker.kt`.
 2. **Synchroniser** : si oui, appelle les deux mêmes endpoints publics que
    le navigateur appelle déjà — voir `sync/SyncRunner.kt` :
-   - `GET {BASE_URL}/api/live-scores` (championnat, TheSportsDB)
-   - `GET {BASE_URL}/api/live-scores-euro` (Coupe + CL/EL/ECL, sans
-     paramètres = mode auto-découverte : l'endpoint interroge lui-même
-     Supabase pour savoir quels matchs sont actuellement dans leur fenêtre
-     live)
+   - `GET {BASE_URL}/api/live-scores` (championnat)
+   - `GET {BASE_URL}/api/live-scores-euro` (Coupe + CL/EL/ECL)
 
-Toute la logique sensible (clé TheSportsDB, clé service_role Supabase,
-scraping footmercato) reste côté Vercel (`api/live-scores.ts` /
-`api/live-scores-euro.ts` dans le repo principal).
+   Les deux sont sans paramètres = mode auto-découverte : chaque endpoint
+   interroge lui-même Supabase pour savoir quels matchs sont actuellement
+   dans leur fenêtre live, puis scrape footmercato.net pour les scores.
+
+Toute la logique sensible (clé service_role Supabase, scraping footmercato)
+reste côté Vercel (`api/live-scores.ts` / `api/live-scores-euro.ts` dans le
+repo principal).
 
 ## Pourquoi une app dédiée plutôt qu'un simple onglet ouvert
 

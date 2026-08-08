@@ -23,11 +23,11 @@ export interface Standing {
   europeanCompetition?: EuropeanCompetition;
 }
 
-// Short match-status codes as returned by TheSportsDB. The live in-play
-// codes (1H/HT/2H/ET/P) ARE available on the free tier too, just not from
-// the season/round endpoints api/sync.ts uses for the daily sync — they
-// come from livescore.php instead (see api/live-scores.ts), polled by the
-// client while a match is in its live window (src/hooks/useLiveScorePolling.ts).
+// Short match-status codes, originally TheSportsDB's vocabulary — kept as
+// the shared vocabulary across every source (footmercato scraping for D1/
+// Cup/Europe only ever produces 'NS' | '1H' | 'FT', see api/sync-d1.ts and
+// api/live-scores.ts, but the full set stays meaningful for historical rows
+// and cross-source consistency).
 export type FixtureStatus =
   | 'NS' // Not Started
   | '1H'

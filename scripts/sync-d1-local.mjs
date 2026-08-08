@@ -1,10 +1,10 @@
-// Manually triggers api/sync.ts locally, outside of Vercel, since `npm run dev`
+// Manually triggers api/sync-d1.ts locally, outside of Vercel, since `npm run dev`
 // (Vite) never serves the /api directory. Useful while iterating before deploy,
 // or to backfill a historical season.
 //
-// Usage: npm run sync:local [season]   (season defaults to the current one)
+// Usage: npm run sync-d1:local [season]   (season defaults to the current one)
 
-import handler from '../api/sync.ts';
+import handler from '../api/sync-d1.ts';
 
 const season = process.argv[2];
 const req = {

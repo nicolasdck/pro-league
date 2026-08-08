@@ -4,13 +4,13 @@ Suivi de la Division 1A belge (classement, calendrier, résultats, historique 3 
 
 Le client ne parle jamais directement à l'API de données. Toutes les données transitent par Supabase, alimenté par une synchro serveur planifiée.
 
-> **Note sur la source de données** : le brief initial prévoyait API-Football (100 req/jour en gratuit), mais son plan gratuit est verrouillé sur une plage fixe de saisons passées (2022-2024) et refuse tout accès à la saison en cours ou à 2025. L'app utilise donc **[TheSportsDB](https://www.thesportsdb.com/)**, dont le plan gratuit couvre la saison en cours (clé de test partagée `123`, ~30 req/min — voir les avertissements plus bas). Données fournies par TheSportsDB.
+> **Note sur la source de données** : le brief initial prévoyait API-Football (100 req/jour en gratuit), mais son plan gratuit est verrouillé sur une plage fixe de saisons passées (2022-2024) et refuse tout accès à la saison en cours ou à 2025. L'app est passée par **[TheSportsDB](https://www.thesportsdb.com/)** un temps (clé de test partagée `123`), mais cette clé étant hammered par tous les utilisateurs gratuits du monde entier, elle se faisait régulièrement bannir par Cloudflare (HTTP 429) — au point qu'une synchro quotidienne pouvait silencieusement disparaître plusieurs jours d'affilée. Comme la Coupe et les 3 coupes d'Europe (voir plus bas), la D1 est donc scrapée sur [footmercato.net](https://www.footmercato.net/belgique/division-1a/calendrier/) : aucun quota, et un rafraîchissement des scores en direct toutes les 3 minutes au lieu d'une fois par jour.
 
 ## Architecture
 
 - **Frontend** : Vite + React 19 + TypeScript, Tailwind v4, `@tanstack/react-query`, `lucide-react`.
 - **Données** : Supabase Postgres (`teams`, `fixtures`, `sync_logs`, `user_preferences`), lecture publique via RLS. Il n'y a **pas** de table `standings` : le classement est calculé côté client à partir des résultats (voir plus bas).
-- **Synchro** : `api/sync.ts` (ligue, depuis TheSportsDB) et quatre fonctions de scraping footmercato — `api/sync-cup.ts` (Croky Cup) et `api/sync-cl.ts` / `sync-el.ts` / `sync-ecl.ts` (Coupes d'Europe, voir plus bas) — chacune déclenchée par son propre cron dans `vercel.json` et faisant un `upsert` dans Supabase avec la clé de service.
+- **Synchro** : cinq fonctions de scraping footmercato, toutes bâties sur [`src/lib/footmercatoScraper.ts`](src/lib/footmercatoScraper.ts) — `api/sync-d1.ts` (Division 1A), `api/sync-cup.ts` (Croky Cup) et `api/sync-cl.ts` / `sync-el.ts` / `sync-ecl.ts` (Coupes d'Europe, voir plus bas) — chacune déclenchée par son propre cron dans `vercel.json` et faisant un `upsert`/`update` dans Supabase avec la clé de service.
 - **PWA** : `vite-plugin-pwa`, cache Stale-While-Revalidate sur les réponses Supabase pour un fonctionnement hors-ligne avec les dernières données connues.
 
 ## Mise en route
@@ -24,28 +24,25 @@ npm run dev
 1. Créer un projet Supabase et exécuter [`supabase/schema.sql`](supabase/schema.sql) dans l'éditeur SQL (ou `supabase db push` avec la CLI).
 2. Renseigner les variables d'environnement (voir `.env.example`) :
    - `VITE_SUPABASE_URL` / `VITE_SUPABASE_ANON_KEY` : utilisées par le client React.
-   - `SUPABASE_URL` / `SUPABASE_SERVICE_ROLE_KEY` : utilisées uniquement par `api/sync.ts` (jamais exposées au navigateur).
-   - `THESPORTSDB_API_KEY` : `123` fonctionne (clé de test gratuite partagée). **Peu fiable en pratique** (voir avertissement ci-dessous) — pour un usage sérieux, prendre une clé personnelle via le [Patreon TheSportsDB](https://www.patreon.com/thesportsdb) (~9$/mois).
-   - `CRON_SECRET` : jeton partagé pour protéger l'endpoint `/api/sync` (transmis en `?secret=` ou en header `Authorization: Bearer`). Vercel Cron l'envoie automatiquement en header si la variable est définie sur le projet.
+   - `SUPABASE_URL` / `SUPABASE_SERVICE_ROLE_KEY` : utilisées par toutes les fonctions serverless (jamais exposées au navigateur).
+   - `CRON_SECRET` : jeton partagé pour protéger les endpoints `/api/sync-*` (transmis en `?secret=` ou en header `Authorization: Bearer`). Vercel Cron l'envoie automatiquement en header si la variable est définie sur le projet.
 3. Avant de déployer, on peut déclencher une synchro manuelle en local (voir ci-dessous) puisque `npm run dev` (Vite) ne sert jamais le dossier `/api`.
-4. Déployer sur Vercel : mêmes variables dans les Project Settings ; `vercel.json` déclare un cron 1x/jour et un `maxDuration` de 90s (une synchro complète d'une saison peut prendre ~1 min).
+4. Déployer sur Vercel : mêmes variables dans les Project Settings ; `vercel.json` déclare un cron 1x/jour par synchro.
 
-> **Limite Vercel Hobby** : le plan gratuit **refuse le déploiement** si un cron est déclaré plus d'une fois par jour (erreur `Hobby accounts are limited to daily cron jobs`, pas juste une limitation silencieuse). Pour un polling plus fréquent les jours de match, passer au plan Pro ou déclencher `/api/sync?secret=...` depuis un scheduler externe (GitHub Actions, cron-job.org).
-
-> **⚠️ Fiabilité de la clé de test `123`** : en pratique, cette clé partagée déclenche régulièrement un ban Cloudflare temporaire (HTTP 429, "you are being rate limited") — probablement un quota global partagé entre tous les utilisateurs gratuits dans le monde, pas seulement le trafic de cette app. `api/sync.ts` retente automatiquement avec un backoff, mais une synchro complète peut tout de même échouer. Une clé Patreon personnelle est fortement recommandée en production.
+> **Limite Vercel Hobby** : le plan gratuit **refuse le déploiement** si un cron est déclaré plus d'une fois par jour (erreur `Hobby accounts are limited to daily cron jobs`, pas juste une limitation silencieuse). C'est pour ça que les scores en direct (`api/live-scores.ts`, `api/live-scores-euro.ts`) ne sont pas des crons du tout : ils sont déclenchés par le polling du navigateur (voir `src/hooks/useLiveScorePolling*.ts`) et/ou par l'app Android de synchro en tâche de fond (voir `android-sync/README.md`), pas par Vercel.
 
 ## Déclencher une synchro manuellement
 
 ```bash
-npm run sync:local        # saison en cours
-npm run sync:local 2024   # saison 2024-25 (backfill historique)
+npm run sync-d1:local        # saison en cours
+npm run sync-d1:local 2024   # saison 2024-25 (backfill historique)
 ```
 
-`scripts/sync-local.mjs` charge `.env.local` et appelle directement le handler de `api/sync.ts`. Le calendrier complet est récupéré journée par journée (`eventsround.php`) car l'endpoint saison complète de TheSportsDB est plafonné à 15 matchs sur le plan gratuit — ça prend une minute ou deux.
+`scripts/sync-d1-local.mjs` charge `.env.local` et appelle directement le handler de `api/sync-d1.ts`.
 
 ## Classement : calculé, pas synchronisé
 
-`lookuptable.php` (l'endpoint classement de TheSportsDB) est plafonné à **5 lignes sur le plan gratuit, même pour une saison entièrement terminée** (vérifié). Le classement est donc calculé côté client dans [`src/lib/standings.ts`](src/lib/standings.ts) à partir des résultats de tous les matchs de la saison (déjà récupérés en entier via `api/sync.ts`) :
+Il n'y a pas de table `standings` synchronisée : le classement est calculé côté client dans [`src/lib/standings.ts`](src/lib/standings.ts) à partir des résultats de tous les matchs de la saison (déjà récupérés en entier via `api/sync-d1.ts`) :
 
 - **Saison 2026-27 et suivantes** : calcul exact — la Pro League passe à un format simple (18 clubs, aller-retour, sans playoffs).
 - **Avant la première journée** : tant que la saison en cours n'a aucun résultat, le tri se fait sur le classement final de la saison précédente plutôt qu'alphabétiquement.
@@ -57,6 +54,14 @@ Les zones de qualification européenne (Ligue des Champions / Europa / Conféren
 ## Historique (menu du bas)
 
 Un menu fixe en bas de l'écran ([`SeasonNav`](src/components/SeasonNav.tsx)) permet de basculer entre la saison actuelle et les 3 précédentes ; les onglets Classement/Calendrier du haut s'appliquent à la saison sélectionnée.
+
+## Division 1A (championnat)
+
+`api/sync-d1.ts` scrape le calendrier complet sur [footmercato.net](https://www.footmercato.net/belgique/division-1a/calendrier/) (34 journées de saison régulière, plus les phases de playoffs une fois qu'elles y sont liées) — même moteur que la Coupe et les Coupes d'Europe ci-dessous. Contrairement à celles-ci, chaque match de D1 oppose toujours deux des 18 clubs connus, donc `home_team_id`/`away_team_id` sont toujours résolus et il n'y a pas besoin de stocker nom/logo en texte brut sur `fixtures`.
+
+- **Historique préservé** : `fixtures.id` reste un entier stable généré par Postgres (`generated by default as identity`), pas l'id footmercato lui-même (~19 chiffres, dépasserait `Number.MAX_SAFE_INTEGER` une fois relu par le client — le même problème déjà contourné pour `cup_fixtures`/`european_fixtures` via `match_url`). Les lignes déjà synchronisées avant ce changement (id TheSportsDB, `match_url` encore `null`) sont donc réconciliées par correspondance (équipe domicile, équipe extérieur, jour du calendrier) plutôt que dupliquées — footmercato ne donne l'heure exacte du coup d'envoi que pour les matchs pas encore joués, d'où une correspondance au jour près plutôt qu'à l'instant près.
+- **Scores en direct** : `api/live-scores.ts` interroge `fixtures` pour les matchs actuellement dans leur fenêtre live (voir `src/lib/liveWindow.ts`) et scrape la page de chacun — jamais un cron (voir la limite Vercel Hobby plus haut), déclenché par le polling du navigateur ou par l'app Android de synchro.
+- **Synchro** : cron quotidien (`vercel.json`, `0 5 * * *`). Déclenchement manuel : `npm run sync-d1:local`.
 
 ## Coupe de Belgique (Croky Cup)
 
@@ -77,15 +82,15 @@ Même logique que la Croky Cup, réutilisant le même moteur de scraping ([`src/
 
 ## Logos des équipes (aucun lien externe)
 
-Aucune image n'est jamais chargée depuis un CDN tiers : les blasons sont téléchargés une fois, redimensionnés et compressés en WebP dans [`public/team-logos/`](public/team-logos) (`/team-logos/<id>.webp`, ~120 Ko pour les 18 clubs contre ~1.8 Mo pour les PNG bruts de TheSportsDB), servis en same-origin et précachés par le service worker pour fonctionner hors-ligne.
+Aucune image n'est jamais chargée depuis un CDN tiers : les blasons sont téléchargés une fois, redimensionnés et compressés en WebP dans [`public/team-logos/`](public/team-logos) (`/team-logos/<id>.webp`, ~120 Ko pour les 18 clubs), servis en same-origin et précachés par le service worker pour fonctionner hors-ligne.
 
 ```bash
 npm run logos:localize
 ```
 
-`scripts/localize-logos.mjs` (utilise `sharp`) télécharge le logo de chaque équipe dont `teams.logo` n'est pas encore un `.webp` local, le redimensionne (128px max) et l'enregistre dans `public/team-logos/`, puis met à jour la ligne en base avec le chemin local. `api/sync.ts` ne touche plus jamais `logo` une fois qu'il pointe vers un chemin local (`/...`) — sinon chaque synchro le remplacerait par l'URL externe de TheSportsDB. [`supabase/seed.sql`](supabase/seed.sql) référence directement ces chemins locaux pour les 18 clubs actuels.
+`scripts/localize-logos.mjs` (utilise `sharp`) télécharge le logo de chaque équipe dont `teams.logo` n'est pas encore un `.webp` local, le redimensionne (128px max) et l'enregistre dans `public/team-logos/`, puis met à jour la ligne en base avec le chemin local. [`supabase/seed.sql`](supabase/seed.sql) référence directement ces chemins locaux pour les 18 clubs actuels.
 
-À relancer après une promotion/relégation qui introduit une nouvelle équipe (celle-ci apparaît d'abord avec l'URL externe de TheSportsDB le temps qu'on relance le script).
+> **Promotion/relégation** : `api/sync-d1.ts` ne fait plus d'auto-découverte d'équipe (contrairement à l'ancien `api/sync.ts` basé sur TheSportsDB) — un club nouvellement promu doit être ajouté à la main dans `teams` (avec une URL de logo externe le temps de lancer `logos:localize`) et dans [`src/lib/d1ClubAliases.ts`](src/lib/d1ClubAliases.ts), sinon ses matchs sont silencieusement ignorés par la synchro (`home_team_id`/`away_team_id` ne se résolvent pas).
 
 ## Thème dynamique par équipe
 
@@ -94,10 +99,11 @@ Tailwind v4 n'utilise plus de `tailwind.config.js` classique : les couleurs sont
 ## Structure
 
 ```
-api/sync.ts                        # Fonction serverless : TheSportsDB -> Supabase (fixtures uniquement)
+api/sync-d1.ts                     # Fonction serverless : scraping footmercato -> Supabase (Division 1A)
 api/sync-cup.ts                    # Fonction serverless : scraping footmercato -> Supabase (Croky Cup, clubs D1 uniquement)
 api/sync-cl.ts, sync-el.ts, sync-ecl.ts  # Idem pour Ligue des Champions / Europa League / Conference League
-scripts/sync-local.mjs             # Déclenche la synchro en local (hors Vercel dev)
+api/live-scores.ts, live-scores-euro.ts  # Scores en direct : scraping à la demande (polling navigateur/app Android), pas un cron
+scripts/sync-d1-local.mjs          # Déclenche la synchro D1 en local (hors Vercel dev)
 scripts/sync-cup-local.mjs         # Déclenche la synchro Croky Cup en local
 scripts/sync-europe-local.mjs      # Déclenche une synchro européenne en local (cl|el|ecl)
 scripts/localize-logos.mjs         # Télécharge les logos en local, aucun lien externe
@@ -108,9 +114,10 @@ supabase/seed.sql                  # Couleurs + logos locaux des 18 clubs actuel
 src/lib/standings.ts               # Calcul du classement depuis les résultats
 src/lib/historicalStandingsOverrides.ts  # Classement officiel 2025-26 (saisi à la main)
 src/lib/europeanQualification.ts   # Zones de qualification européenne (saisi à la main)
-src/lib/footmercatoScraper.ts      # Moteur de scraping partagé (Coupe + Coupes d'Europe)
+src/lib/footmercatoScraper.ts      # Moteur de scraping partagé (D1, Coupe, Coupes d'Europe)
 src/lib/europeSyncHandler.ts       # Factory du handler de synchro pour les 3 coupes d'Europe
-src/lib/d1ClubAliases.ts           # Correspondance nom footmercato -> id `teams` (Coupe + Europe)
+src/lib/d1ClubAliases.ts           # Correspondance nom footmercato -> id `teams` (D1, Coupe, Europe)
+src/lib/liveWindow.ts              # Fenêtre "match en direct" partagée par les hooks de polling live
 src/hooks/                         # react-query (teams, fixtures, cup, europe) + favoris/online/PWA
 src/context/                       # TeamThemeContext (thème dynamique)
 src/components/                    # Header, StandingsTable, FixturesList, CupFixturesList, EuropePage, MatchList, ...

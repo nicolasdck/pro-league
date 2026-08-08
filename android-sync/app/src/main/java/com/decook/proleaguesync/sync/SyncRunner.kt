@@ -8,8 +8,8 @@ import org.json.JSONObject
 import java.io.IOException
 import java.util.concurrent.TimeUnit
 
-// Both endpoints already do all the real work server-side (fetch TheSportsDB /
-// scrape footmercato.net, write to Supabase with the service-role key) — see
+// Both endpoints already do all the real work server-side (scrape
+// footmercato.net, write to Supabase with the service-role key) — see
 // api/live-scores.ts and api/live-scores-euro.ts in the main web repo. This
 // app holds no API key or Supabase credential of any kind: it's a plain,
 // unauthenticated GET, exactly what the browser's own polling already does

@@ -8,7 +8,7 @@
     "build": "tsc -b && vite build",
     "lint": "eslint .",
     "preview": "vite preview",
-    "sync:local": "tsx --env-file=.env.local scripts/sync-local.mjs",
+    "sync-d1:local": "tsx --env-file=.env.local scripts/sync-d1-local.mjs",
     "sync-cup:local": "tsx --env-file=.env.local scripts/sync-cup-local.mjs",
     "sync-europe:local": "tsx --env-file=.env.local scripts/sync-europe-local.mjs",
     "sync-news:local": "tsx --env-file=.env.local scripts/sync-news-local.mjs",

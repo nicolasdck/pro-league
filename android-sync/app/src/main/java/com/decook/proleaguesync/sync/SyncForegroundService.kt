@@ -84,8 +84,8 @@ class SyncForegroundService : Service() {
             // (fixtures/cup_fixtures/european_fixtures, lecture seule) dit lui-même
             // s'il y a un match en cours ou proche — voir ScheduleChecker. Ce check est
             // volontairement bon marché (3 lectures Supabase) : il tourne à chaque cycle, même à
-            // 30s, sans jamais appeler TheSportsDB/footmercato tant qu'aucun match n'est
-            // réellement dans sa fenêtre live — seul runSyncWithWakeLock() le fait.
+            // 30s, sans jamais appeler footmercato tant qu'aucun match n'est réellement dans
+            // sa fenêtre live — seul runSyncWithWakeLock() le fait.
             val schedule = ScheduleChecker().checkNow()
             if (schedule.isLive) {
                 runSyncWithWakeLock()
