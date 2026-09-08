@@ -14,6 +14,7 @@
     "sync-news:local": "tsx --env-file=.env.local scripts/sync-news-local.mjs",
     "sync-player-stats:local": "tsx --env-file=.env.local scripts/sync-player-stats-local.mjs",
     "logos:localize": "node --env-file=.env.local scripts/localize-logos.mjs",
+    "logos:shrink": "node --env-file=.env.local scripts/shrink-logos.mjs",
     "icon:generate": "node scripts/generate-app-icon.mjs"
   },
   "dependencies": {

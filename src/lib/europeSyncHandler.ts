@@ -59,6 +59,17 @@ function labelForPhaseSlug(slug: string): string {
   return PHASE_LABELS[slug] ?? slug;
 }
 
+// A thrown Supabase/PostgREST error (e.g. `if (error) throw error`) is a
+// plain object with a `.message` string, never an `Error` instance — an
+// `instanceof Error` check on it is always false, which silently collapsed
+// the real Postgres error into a useless "Unknown error" here for over a
+// week (see the de-dupe fix below for what that error actually was).
+function errorMessage(err: unknown): string {
+  if (err instanceof Error) return err.message;
+  if (err && typeof err === 'object' && 'message' in err && typeof err.message === 'string') return err.message;
+  return 'Unknown error';
+}
+
 function getSupabaseAdmin(): SupabaseClient {
   const url = process.env.SUPABASE_URL;
   const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -140,12 +151,24 @@ async function syncEuropeanFixtures(
     await sleep(REQUEST_DELAY_MS);
   }
 
-  if (allRows.length > 0) {
-    const { error } = await supabase.from('european_fixtures').upsert(allRows, { onConflict: 'id' });
+  // Once a competition's league phase is drawn, footmercato links it twice
+  // from the base calendar page — once as the generic "phase-league-stage"
+  // slug, again as explicit "journee-1".."journee-8" slugs for the same
+  // matchdays — and discoverPhaseLinks() has no way to tell they're
+  // duplicates. A single upsert() call containing two rows with the same
+  // `id` makes Postgres reject the whole statement ("ON CONFLICT DO UPDATE
+  // command cannot affect row a second time"), which silently zeroed out
+  // every CL/EL/ECL sync from the day each competition's league phase was
+  // drawn (confirmed 2026-09-08: EL had failed daily since Aug 28-29).
+  // De-duping by id — same real match either way — fixes it for good.
+  const uniqueRows = Array.from(new Map(allRows.map((row) => [row.id, row])).values());
+
+  if (uniqueRows.length > 0) {
+    const { error } = await supabase.from('european_fixtures').upsert(uniqueRows, { onConflict: 'id' });
     if (error) throw error;
   }
 
-  return { requestsUsed, fixturesFound: allRows.length };
+  return { requestsUsed, fixturesFound: uniqueRows.length };
 }
 
 export function createEuropeSyncHandler(competition: EuropeanCompetitionCode, baseUrl: string) {
@@ -162,7 +185,7 @@ export function createEuropeSyncHandler(competition: EuropeanCompetitionCode, ba
     try {
       supabase = getSupabaseAdmin();
     } catch (err) {
-      res.status(500).json({ success: false, error: (err as Error).message });
+      res.status(500).json({ success: false, error: errorMessage(err) });
       return;
     }
 
@@ -171,7 +194,7 @@ export function createEuropeSyncHandler(competition: EuropeanCompetitionCode, ba
       await logSync(supabase, competition, requestsUsed, true, `${fixturesFound} Belgian fixture(s) found`);
       res.status(200).json({ success: true, competition, requestsUsed, fixturesFound });
     } catch (err) {
-      const message = err instanceof Error ? err.message : 'Unknown error';
+      const message = errorMessage(err);
       await logSync(supabase, competition, 0, false, message).catch(() => undefined);
       res.status(500).json({ success: false, error: message });
     }

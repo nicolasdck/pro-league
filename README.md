@@ -82,13 +82,14 @@ Même logique que la Croky Cup, réutilisant le même moteur de scraping ([`src/
 
 ## Logos des équipes (aucun lien externe)
 
-Aucune image n'est jamais chargée depuis un CDN tiers : les blasons sont téléchargés une fois, redimensionnés et compressés en WebP dans [`public/team-logos/`](public/team-logos) (`/team-logos/<id>.webp`, ~120 Ko pour les 18 clubs), servis en same-origin et précachés par le service worker pour fonctionner hors-ligne.
+Aucune image n'est jamais chargée depuis un CDN tiers : les blasons sont téléchargés une fois, redimensionnés et compressés en WebP dans [`public/team-logos/`](public/team-logos) (128px max, sert de master pour tout redimensionnement futur), puis rétrécis en [`public/team-logos-small/`](public/team-logos-small) (64px, `teams.logo` pointe ici) — le plus grand affichage réel étant 24px (`h-6`/`w-6`, cartes de match), 64px reste net jusqu'à ~2.5x la densité de pixels sans jamais expédier le master 128px au client. Servis en same-origin et précachés par le service worker pour fonctionner hors-ligne.
 
 ```bash
-npm run logos:localize
+npm run logos:localize   # télécharge les nouveaux logos (promotion/relégation) dans team-logos/
+npm run logos:shrink     # régénère team-logos-small/ depuis les masters de team-logos/
 ```
 
-`scripts/localize-logos.mjs` (utilise `sharp`) télécharge le logo de chaque équipe dont `teams.logo` n'est pas encore un `.webp` local, le redimensionne (128px max) et l'enregistre dans `public/team-logos/`, puis met à jour la ligne en base avec le chemin local. [`supabase/seed.sql`](supabase/seed.sql) référence directement ces chemins locaux pour les 18 clubs actuels.
+`scripts/localize-logos.mjs` (utilise `sharp`) télécharge le logo de chaque équipe dont `teams.logo` n'est pas encore un `.webp` local, le redimensionne (128px max) et l'enregistre dans `public/team-logos/`. `scripts/shrink-logos.mjs` prend ensuite ces masters (aucun appel réseau), génère la version 64px dans `public/team-logos-small/` et repointe `teams.logo` dessus — à relancer après tout `logos:localize`. [`supabase/seed.sql`](supabase/seed.sql) référence directement les chemins `team-logos-small` pour les 18 clubs actuels.
 
 > **Promotion/relégation** : `api/sync-d1.ts` ne fait plus d'auto-découverte d'équipe (contrairement à l'ancien `api/sync.ts` basé sur TheSportsDB) — un club nouvellement promu doit être ajouté à la main dans `teams` (avec une URL de logo externe le temps de lancer `logos:localize`) et dans [`src/lib/d1ClubAliases.ts`](src/lib/d1ClubAliases.ts), sinon ses matchs sont silencieusement ignorés par la synchro (`home_team_id`/`away_team_id` ne se résolvent pas).
 
@@ -107,8 +108,10 @@ scripts/sync-d1-local.mjs          # Déclenche la synchro D1 en local (hors Ver
 scripts/sync-cup-local.mjs         # Déclenche la synchro Croky Cup en local
 scripts/sync-europe-local.mjs      # Déclenche une synchro européenne en local (cl|el|ecl)
 scripts/localize-logos.mjs         # Télécharge les logos en local, aucun lien externe
+scripts/shrink-logos.mjs           # Génère team-logos-small/ (64px) depuis les masters de team-logos/
 scripts/generate-app-icon.mjs      # Génère les icônes PWA depuis new-app-icon.png
-public/team-logos/                 # Logos des 18 clubs, servis en same-origin
+public/team-logos/                 # Masters 128px (source pour shrink-logos.mjs)
+public/team-logos-small/           # Logos 64px réellement servis (teams.logo)
 supabase/schema.sql                # Schéma Postgres + RLS
 supabase/seed.sql                  # Couleurs + logos locaux des 18 clubs actuels
 src/lib/standings.ts               # Calcul du classement depuis les résultats
