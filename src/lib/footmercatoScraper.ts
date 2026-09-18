@@ -35,12 +35,26 @@ export function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
+const MAX_429_RETRIES = 3;
+
+// footmercato occasionally rate-limits (429) a request in the middle of a
+// sync that's fetching a few dozen pages back-to-back — a transient block,
+// not a permanent failure, so it's worth a few backed-off retries (honoring
+// `Retry-After` when the server sends one) before giving up on that page.
 export async function fetchHtml(url: string): Promise<string> {
-  const response = await fetch(url, { headers: { 'User-Agent': USER_AGENT } });
-  if (!response.ok) {
+  for (let attempt = 0; ; attempt++) {
+    const response = await fetch(url, { headers: { 'User-Agent': USER_AGENT } });
+    if (response.ok) return response.text();
+
+    if (response.status === 429 && attempt < MAX_429_RETRIES) {
+      const retryAfterSeconds = Number(response.headers.get('retry-after'));
+      const backoffMs = Number.isFinite(retryAfterSeconds) && retryAfterSeconds > 0 ? retryAfterSeconds * 1000 : 2000 * 2 ** attempt;
+      await sleep(backoffMs);
+      continue;
+    }
+
     throw new Error(`footmercato request failed (${response.status}): ${url}`);
   }
-  return response.text();
 }
 
 // Every phase/matchday of a competition's calendar gets its own numeric-id

@@ -46,13 +46,26 @@ async function logSync(supabase: SupabaseClient, requestsUsed: number, success: 
   await supabase.from('sync_logs').insert({ resource: 'fixtures', requests_used: requestsUsed, success, message });
 }
 
-async function scrapeAllMatches(): Promise<{ matches: RawParsedMatch[]; requestsUsed: number }> {
+async function scrapeAllMatches(): Promise<{ matches: RawParsedMatch[]; requestsUsed: number; failedPhases: string[] }> {
   const phaseLinks = await discoverPhaseLinks(BASE_URL);
   let requestsUsed = 1; // the base calendar page fetched by discoverPhaseLinks
   const matches: RawParsedMatch[] = [];
+  const failedPhases: string[] = [];
 
   for (const link of phaseLinks) {
-    const html = await fetchHtml(link.url);
+    let html: string;
+    try {
+      html = await fetchHtml(link.url);
+    } catch (err) {
+      // A single matchday page still failing after fetchHtml's own retries
+      // (e.g. footmercato keeps 429-ing it) shouldn't blank out every other
+      // matchday's results for the day — skip it and let the next sync run
+      // pick it back up, instead of throwing and discarding everything
+      // already scraped this run.
+      failedPhases.push(`${link.slug} (${(err as Error).message})`);
+      await sleep(REQUEST_DELAY_MS);
+      continue;
+    }
     requestsUsed += 1;
 
     for (const match of parseMatchesFromHtml(html, link.url)) {
@@ -77,7 +90,7 @@ async function scrapeAllMatches(): Promise<{ matches: RawParsedMatch[]; requests
     await sleep(REQUEST_DELAY_MS);
   }
 
-  return { matches, requestsUsed };
+  return { matches, requestsUsed, failedPhases };
 }
 
 // Reconciles against `fixtures` rows already synced from the old
@@ -104,8 +117,11 @@ async function fetchLegacyRowsByKey(supabase: SupabaseClient, season: number): P
   return byKey;
 }
 
-async function syncD1Fixtures(supabase: SupabaseClient, season: number): Promise<{ requestsUsed: number; fixturesFound: number }> {
-  const [{ matches, requestsUsed }, legacyByKey] = await Promise.all([
+async function syncD1Fixtures(
+  supabase: SupabaseClient,
+  season: number,
+): Promise<{ requestsUsed: number; fixturesFound: number; failedPhases: string[] }> {
+  const [{ matches, requestsUsed, failedPhases }, legacyByKey] = await Promise.all([
     scrapeAllMatches(),
     fetchLegacyRowsByKey(supabase, season),
   ]);
@@ -178,7 +194,7 @@ async function syncD1Fixtures(supabase: SupabaseClient, season: number): Promise
     if (error) throw error;
   }
 
-  return { requestsUsed, fixturesFound: matches.length };
+  return { requestsUsed, fixturesFound: matches.length, failedPhases };
 }
 
 export default async function handler(req: VercelRequest, res: VercelResponse): Promise<void> {
@@ -201,9 +217,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse): 
   }
 
   try {
-    const { requestsUsed, fixturesFound } = await syncD1Fixtures(supabase, season);
-    await logSync(supabase, requestsUsed, true, `${fixturesFound} D1 fixture(s) found`);
-    res.status(200).json({ success: true, season, requestsUsed, fixturesFound });
+    const { requestsUsed, fixturesFound, failedPhases } = await syncD1Fixtures(supabase, season);
+    const message =
+      failedPhases.length > 0
+        ? `${fixturesFound} D1 fixture(s) found; skipped ${failedPhases.length} phase(s): ${failedPhases.join(', ')}`
+        : `${fixturesFound} D1 fixture(s) found`;
+    await logSync(supabase, requestsUsed, true, message);
+    res.status(200).json({ success: true, season, requestsUsed, fixturesFound, failedPhases });
   } catch (err) {
     const message = err instanceof Error ? err.message : 'Unknown error';
     await logSync(supabase, 0, false, message).catch(() => undefined);

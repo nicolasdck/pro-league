@@ -68,17 +68,30 @@ async function logSync(
   await supabase.from('sync_logs').insert({ resource: 'cup_fixtures', requests_used: requestsUsed, success, message });
 }
 
-async function syncCupFixtures(supabase: SupabaseClient): Promise<{ requestsUsed: number; fixturesFound: number }> {
+async function syncCupFixtures(
+  supabase: SupabaseClient,
+): Promise<{ requestsUsed: number; fixturesFound: number; failedPhases: string[] }> {
   const phaseLinks = await discoverPhaseLinks(BASE_URL);
   let requestsUsed = 1; // the base calendar page fetched by discoverPhaseLinks
   const now = new Date().toISOString();
   const allRows: CupFixtureRow[] = [];
+  const failedPhases: string[] = [];
 
   for (const phase of RELEVANT_PHASES) {
     const link = phaseLinks.find((l) => l.slug === phase.slug);
     if (!link) continue; // phase not published/linked yet (e.g. draw not made)
 
-    const html = await fetchHtml(link.url);
+    let html: string;
+    try {
+      html = await fetchHtml(link.url);
+    } catch (err) {
+      // One phase page still failing after fetchHtml's own 429 retries
+      // shouldn't blank out every other phase's results for the day — skip
+      // it, let the next run retry it.
+      failedPhases.push(`${link.slug} (${(err as Error).message})`);
+      await sleep(REQUEST_DELAY_MS);
+      continue;
+    }
     requestsUsed += 1;
 
     for (const match of parseMatchesFromHtml(html, link.url)) {
@@ -130,7 +143,7 @@ async function syncCupFixtures(supabase: SupabaseClient): Promise<{ requestsUsed
     if (error) throw error;
   }
 
-  return { requestsUsed, fixturesFound: allRows.length };
+  return { requestsUsed, fixturesFound: allRows.length, failedPhases };
 }
 
 export default async function handler(req: VercelRequest, res: VercelResponse): Promise<void> {
@@ -151,9 +164,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse): 
   }
 
   try {
-    const { requestsUsed, fixturesFound } = await syncCupFixtures(supabase);
-    await logSync(supabase, requestsUsed, true, `${fixturesFound} D1 fixture(s) found`);
-    res.status(200).json({ success: true, requestsUsed, fixturesFound });
+    const { requestsUsed, fixturesFound, failedPhases } = await syncCupFixtures(supabase);
+    const message =
+      failedPhases.length > 0
+        ? `${fixturesFound} Cup fixture(s) found; skipped ${failedPhases.length} phase(s): ${failedPhases.join(', ')}`
+        : `${fixturesFound} Cup fixture(s) found`;
+    await logSync(supabase, requestsUsed, true, message);
+    res.status(200).json({ success: true, requestsUsed, fixturesFound, failedPhases });
   } catch (err) {
     const message = err instanceof Error ? err.message : 'Unknown error';
     await logSync(supabase, 0, false, message).catch(() => undefined);

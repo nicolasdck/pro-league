@@ -95,14 +95,26 @@ async function syncEuropeanFixtures(
   supabase: SupabaseClient,
   competition: EuropeanCompetitionCode,
   baseUrl: string,
-): Promise<{ requestsUsed: number; fixturesFound: number }> {
+): Promise<{ requestsUsed: number; fixturesFound: number; failedPhases: string[] }> {
   const phaseLinks = await discoverPhaseLinks(baseUrl);
   let requestsUsed = 1; // the base calendar page fetched by discoverPhaseLinks
   const now = new Date().toISOString();
   const allRows: EuropeanFixtureRow[] = [];
+  const failedPhases: string[] = [];
 
   for (const link of phaseLinks) {
-    const html = await fetchHtml(link.url);
+    let html: string;
+    try {
+      html = await fetchHtml(link.url);
+    } catch (err) {
+      // One phase page still failing after fetchHtml's own 429 retries
+      // shouldn't blank out every other phase's results for the day (see
+      // the league-phase de-dup fix above for the same "one bad thing zeros
+      // the whole sync" failure mode) — skip it, let the next run retry it.
+      failedPhases.push(`${link.slug} (${(err as Error).message})`);
+      await sleep(REQUEST_DELAY_MS);
+      continue;
+    }
     requestsUsed += 1;
 
     for (const match of parseMatchesFromHtml(html, link.url)) {
@@ -168,7 +180,7 @@ async function syncEuropeanFixtures(
     if (error) throw error;
   }
 
-  return { requestsUsed, fixturesFound: uniqueRows.length };
+  return { requestsUsed, fixturesFound: uniqueRows.length, failedPhases };
 }
 
 export function createEuropeSyncHandler(competition: EuropeanCompetitionCode, baseUrl: string) {
@@ -190,9 +202,13 @@ export function createEuropeSyncHandler(competition: EuropeanCompetitionCode, ba
     }
 
     try {
-      const { requestsUsed, fixturesFound } = await syncEuropeanFixtures(supabase, competition, baseUrl);
-      await logSync(supabase, competition, requestsUsed, true, `${fixturesFound} Belgian fixture(s) found`);
-      res.status(200).json({ success: true, competition, requestsUsed, fixturesFound });
+      const { requestsUsed, fixturesFound, failedPhases } = await syncEuropeanFixtures(supabase, competition, baseUrl);
+      const message =
+        failedPhases.length > 0
+          ? `${fixturesFound} Belgian fixture(s) found; skipped ${failedPhases.length} phase(s): ${failedPhases.join(', ')}`
+          : `${fixturesFound} Belgian fixture(s) found`;
+      await logSync(supabase, competition, requestsUsed, true, message);
+      res.status(200).json({ success: true, competition, requestsUsed, fixturesFound, failedPhases });
     } catch (err) {
       const message = errorMessage(err);
       await logSync(supabase, competition, 0, false, message).catch(() => undefined);
