@@ -46,13 +46,38 @@ async function logSync(supabase: SupabaseClient, requestsUsed: number, success: 
   await supabase.from('sync_logs').insert({ resource: 'fixtures', requests_used: requestsUsed, success, message });
 }
 
-async function scrapeAllMatches(): Promise<{ matches: RawParsedMatch[]; requestsUsed: number; failedPhases: string[] }> {
+// Re-fetching all 34 matchdays on every single run (one per day) is what pushed
+// this past its own time budget once footmercato started 429-ing a few of them
+// (each retried page burns several seconds — see fetchHtml) — a round that's
+// already fully played and settled in `fixtures` doesn't need checking again,
+// so only the still-open ones (and anything from the last few days, in case of
+// a late score correction) are worth a request.
+const SETTLED_ROUND_BUFFER_MS = 3 * 24 * 60 * 60 * 1000;
+
+// Hard stop short of the function's 60s maxDuration — Vercel kills the
+// invocation outright past that, which (unlike a thrown error) skips the
+// catch block entirely and leaves nothing in sync_logs, not even a failure.
+// Bailing out of the scrape loop early instead still lets whatever was
+// already gathered get persisted below.
+const TIME_BUDGET_MS = 45_000;
+
+async function scrapeAllMatches(
+  settledRounds: Set<string>,
+): Promise<{ matches: RawParsedMatch[]; requestsUsed: number; failedPhases: string[] }> {
+  const startedAt = Date.now();
   const phaseLinks = await discoverPhaseLinks(BASE_URL);
   let requestsUsed = 1; // the base calendar page fetched by discoverPhaseLinks
   const matches: RawParsedMatch[] = [];
   const failedPhases: string[] = [];
 
   for (const link of phaseLinks) {
+    if (settledRounds.has(labelForPhaseSlug(link.slug))) continue;
+
+    if (Date.now() - startedAt > TIME_BUDGET_MS) {
+      failedPhases.push(`${link.slug} (skipped: approaching the function's time limit)`);
+      continue;
+    }
+
     let html: string;
     try {
       html = await fetchHtml(link.url);
@@ -101,30 +126,55 @@ async function scrapeAllMatches(): Promise<{ matches: RawParsedMatch[]; requests
 // a match is over) while TheSportsDB's stored event_date has the exact
 // kickoff instant. Once a row has a match_url (this sync has touched it
 // before), it's matched by match_url on subsequent runs instead.
-async function fetchLegacyRowsByKey(supabase: SupabaseClient, season: number): Promise<Map<string, number>> {
+//
+// Also figures out which rounds are already fully played & settled, so
+// scrapeAllMatches() can skip re-fetching their footmercato page — see
+// SETTLED_ROUND_BUFFER_MS above.
+async function fetchExistingFixtures(
+  supabase: SupabaseClient,
+  season: number,
+): Promise<{ legacyByKey: Map<string, number>; settledRounds: Set<string> }> {
   const { data, error } = await supabase
     .from('fixtures')
-    .select('id, home_team_id, away_team_id, event_date')
-    .eq('season', season)
-    .is('match_url', null);
+    .select('id, home_team_id, away_team_id, event_date, round, status, match_url')
+    .eq('season', season);
   if (error) throw error;
 
-  const byKey = new Map<string, number>();
+  const legacyByKey = new Map<string, number>();
+  const byRound = new Map<string, { allPlayed: boolean; maxEventDate: string }>();
+
   for (const row of data ?? []) {
-    const dayKey = (row.event_date as string).slice(0, 10);
-    byKey.set(`${row.home_team_id}_${row.away_team_id}_${dayKey}`, row.id as number);
+    if (row.match_url === null) {
+      const dayKey = (row.event_date as string).slice(0, 10);
+      legacyByKey.set(`${row.home_team_id}_${row.away_team_id}_${dayKey}`, row.id as number);
+    }
+
+    const round = row.round as string;
+    const entry = byRound.get(round) ?? { allPlayed: true, maxEventDate: row.event_date as string };
+    entry.allPlayed = entry.allPlayed && row.status === 'FT';
+    if ((row.event_date as string) > entry.maxEventDate) entry.maxEventDate = row.event_date as string;
+    byRound.set(round, entry);
   }
-  return byKey;
+
+  const cutoff = Date.now() - SETTLED_ROUND_BUFFER_MS;
+  const settledRounds = new Set<string>();
+  for (const [round, { allPlayed, maxEventDate }] of byRound) {
+    if (allPlayed && new Date(maxEventDate).getTime() < cutoff) settledRounds.add(round);
+  }
+
+  return { legacyByKey, settledRounds };
 }
 
 async function syncD1Fixtures(
   supabase: SupabaseClient,
   season: number,
 ): Promise<{ requestsUsed: number; fixturesFound: number; failedPhases: string[] }> {
-  const [{ matches, requestsUsed, failedPhases }, legacyByKey] = await Promise.all([
-    scrapeAllMatches(),
-    fetchLegacyRowsByKey(supabase, season),
-  ]);
+  // Sequential, not Promise.all: scrapeAllMatches needs settledRounds (which
+  // round pages are safe to skip) up front, and this lookup is a single fast
+  // query against indexed columns, not worth the added complexity of fetching
+  // it mid-scrape.
+  const { legacyByKey, settledRounds } = await fetchExistingFixtures(supabase, season);
+  const { matches, requestsUsed, failedPhases } = await scrapeAllMatches(settledRounds);
 
   const now = new Date().toISOString();
   interface NewFixtureRow {
