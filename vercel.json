@@ -1,7 +1,7 @@
 {
   "functions": {
     "api/sync-d1.ts": { "maxDuration": 60 },
-    "api/sync-cup.ts": { "maxDuration": 30 },
+    "api/sync-cup.ts": { "maxDuration": 60 },
     "api/sync-cl.ts": { "maxDuration": 60 },
     "api/sync-el.ts": { "maxDuration": 60 },
     "api/sync-ecl.ts": { "maxDuration": 60 },

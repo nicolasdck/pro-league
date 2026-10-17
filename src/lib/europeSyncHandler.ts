@@ -91,11 +91,21 @@ async function logSync(
     .insert({ resource: `european_fixtures:${competition}`, requests_used: requestsUsed, success, message });
 }
 
+// Hard stop short of the function's 60s maxDuration (see vercel.json) —
+// Vercel kills the invocation outright past that, which (unlike a thrown
+// error) skips the catch block entirely and leaves nothing in sync_logs, not
+// even a failure. Bit both D1 (2026-10-12) and the Cup sync (2026-10-17):
+// a couple of 429-retried pages — each worth several seconds, see fetchHtml —
+// was enough to blow the budget. Bailing out of the loop early instead still
+// lets whatever was already gathered get persisted.
+const TIME_BUDGET_MS = 45_000;
+
 async function syncEuropeanFixtures(
   supabase: SupabaseClient,
   competition: EuropeanCompetitionCode,
   baseUrl: string,
 ): Promise<{ requestsUsed: number; fixturesFound: number; failedPhases: string[] }> {
+  const startedAt = Date.now();
   const phaseLinks = await discoverPhaseLinks(baseUrl);
   let requestsUsed = 1; // the base calendar page fetched by discoverPhaseLinks
   const now = new Date().toISOString();
@@ -103,6 +113,11 @@ async function syncEuropeanFixtures(
   const failedPhases: string[] = [];
 
   for (const link of phaseLinks) {
+    if (Date.now() - startedAt > TIME_BUDGET_MS) {
+      failedPhases.push(`${link.slug} (skipped: approaching the function's time limit)`);
+      continue;
+    }
+
     let html: string;
     try {
       html = await fetchHtml(link.url);
